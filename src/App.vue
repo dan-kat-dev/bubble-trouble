@@ -2,6 +2,7 @@
 import { defineComponent, markRaw } from 'vue';
 import { descendants, type OutlineNode, type SizeMetric } from './model/outline';
 import { createSource } from './sketchup/create-source';
+import { MockSource } from './sketchup/mock-source';
 import type { ModelSource } from './sketchup/source';
 import FreeBubbles, { type ClusterBy } from './viz/FreeBubbles.vue';
 import NestedBubbles from './viz/NestedBubbles.vue';
@@ -41,6 +42,11 @@ export default defineComponent({
   },
 
   computed: {
+    /** The fake model, when running outside SketchUp. Its edit buttons show up then. */
+    mock(): MockSource | null {
+      return this.source instanceof MockSource ? this.source : null;
+    },
+
     nodeCount(): number {
       return this.tree ? descendants(this.tree).length : 0;
     },
@@ -174,5 +180,12 @@ export default defineComponent({
     <FreeBubbles v-if="mode === 'free'" v-bind="viewProps" :cluster-by="clusterBy" @select="select" @hover="hoverNode = $event" />
     <NestedBubbles v-else-if="mode === 'nested'" v-bind="viewProps" @select="select" @hover="hoverNode = $event" />
     <Treemap v-else v-bind="viewProps" @select="select" @hover="hoverNode = $event" />
+
+    <div v-if="mock" class="mock-tools">
+      <span class="muted">Fake edits:</span>
+      <button class="button secondary" @click="mock.deleteRandom()">Delete</button>
+      <button class="button secondary" @click="mock.explodeRandom()">Explode</button>
+      <button class="button secondary" @click="mock.addRandom()">Add</button>
+    </div>
   </template>
 </template>
