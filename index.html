@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<!--
+  Bubble Trouble — page shell.
+
+  Thin, per JSA convention: SketchUp's shared stylesheet, the SketchUp SDK,
+  then our app. Vite serves this file in dev and builds it for the zip.
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bubble Trouble</title>
+
+  <!-- SketchUp's native look: typography, buttons, forms, --su-* colors, dark mode.
+       Loaded from their CDN (not bundled) so it picks up their fixes. -->
+  <link rel="stylesheet" href="https://cdn.habitat.sketchup.com/dist/experimental/css/latest/sketchup-extension.css">
+
+  <!-- The SketchUp JS API SDK: defines the global SketchUpApi. A classic script,
+       so it's loaded before our module runs. -->
+  <script src="https://cdn.habitat.sketchup.com/dist/sketchup-js-api/v2/sketchup-js-api.min.js"></script>
+
+  <script type="module" src="/src/main.ts"></script>
+</head>
+<body>
+  <div id="app"></div>
+</body>
+</html>

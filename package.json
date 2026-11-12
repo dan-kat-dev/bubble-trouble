@@ -6,7 +6,9 @@
   "type": "module",
   "scripts": {
     "certs": "node scripts/certs.js",
-    "dev": "node scripts/dev.js",
+    "dev": "vite",
+    "build": "vue-tsc -b && vite build",
+    "typecheck": "vue-tsc -b",
     "zip": "node scripts/zip.js"
   },
   "devDependencies": {

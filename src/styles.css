@@ -1,0 +1,13 @@
+/*
+ * Our styles, layered on top of SketchUp's sketchup-extension.css.
+ * Colors come from its --su-* variables (or light-dark() for anything they
+ * don't cover), so the panel follows SketchUp's light and dark mode.
+ */
+
+.muted {
+  color: var(--su-text-secondary);
+}
+
+.error {
+  color: light-dark(#c0392b, #ff8a7a);
+}
