@@ -1,0 +1,26 @@
+{
+  "manifestFormatVersion": "1.0.0",
+  "id": "bubble-trouble",
+  "baseUrl": "/",
+  "mainFile": "index.html",
+  "name": "Bubble Trouble",
+  "icon": "bubble-trouble.svg",
+  "description": "A visual outliner: see, search and select everything in your model at a glance.",
+  "version": "0.1.0",
+  "creator": "Daniel Kat",
+  "copyright": "2026 Daniel Kat",
+  "window": {
+    "type": "sidebar",
+    "height": 600
+  },
+  "commands": {
+    "open-bubble-trouble": {
+      "title": "Bubble Trouble",
+      "description": "Open the Bubble Trouble visual outliner in the sidebar.",
+      "icon": "bubble-trouble.svg"
+    }
+  },
+  "menuItems": [
+    { "type": "item", "commandId": "open-bubble-trouble" }
+  ]
+}

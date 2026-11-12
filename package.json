@@ -1,0 +1,15 @@
+{
+  "name": "bubble-trouble",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A visual outliner extension for SketchUp (JavaScript API).",
+  "type": "module",
+  "scripts": {
+    "certs": "node scripts/certs.js",
+    "dev": "node scripts/dev.js",
+    "zip": "node scripts/zip.js"
+  },
+  "devDependencies": {
+    "archiver": "^7.0.1"
+  }
+}

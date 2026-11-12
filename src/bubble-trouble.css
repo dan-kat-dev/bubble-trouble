@@ -1,0 +1,15 @@
+/**
+ * bubble-trouble.css — styles specific to Bubble Trouble.
+ *
+ * The shared sketchup-extension.css handles buttons, typography and colors.
+ * Per JSA convention, use its --su-* variables or light-dark() here, never
+ * bare hex colors, so the panel works in light and dark mode.
+ */
+
+#status {
+  color: light-dark(#777, #b7b9c3);
+}
+
+.error {
+  color: light-dark(#c0392b, #ff8a7a);
+}

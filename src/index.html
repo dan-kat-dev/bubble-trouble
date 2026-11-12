@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<!--
+  Bubble Trouble — page shell.
+
+  Started from the SketchUp JSA "sidebar-panel" example (MIT, Trimble Inc).
+  Deliberately thin, per JSA convention: load the shared stylesheet, the SDK,
+  then hand off to bubble-trouble.js, which builds the UI.
+
+  The same files are used both ways:
+    - dev:     served from https://localhost:9000/ (npm run dev)
+    - release: packed into a zip (npm run zip)
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Bubble Trouble</title>
+
+  <!-- Default SketchUp styles (buttons, typography, --su-* colors). -->
+  <link rel="stylesheet" href="https://cdn.habitat.sketchup.com/dist/experimental/css/latest/sketchup-extension.css">
+
+  <!-- Styles specific to this extension. -->
+  <link rel="stylesheet" href="./bubble-trouble.css">
+
+  <!-- The JSA SDK — gives us the global "SketchUpApi" object. -->
+  <script type="application/javascript" src="https://cdn.habitat.sketchup.com/dist/sketchup-js-api/v2/sketchup-js-api.min.js"></script>
+
+  <!-- Extension logic. A module, so it can use top-level await. -->
+  <script type="module" src="./bubble-trouble.js"></script>
+</head>
+<body>
+</body>
+</html>
