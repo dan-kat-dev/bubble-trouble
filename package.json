@@ -5,11 +5,11 @@
   "description": "A visual outliner extension for SketchUp (JavaScript API).",
   "type": "module",
   "scripts": {
-    "certs": "node scripts/certs.js",
-    "dev": "vite",
+    "certs": "node scripts/certs.ts",
+    "dev": "node scripts/dev-manifest.ts && vite",
     "build": "vue-tsc -b && vite build",
     "typecheck": "vue-tsc -b",
-    "zip": "node scripts/zip.js"
+    "zip": "npm run build && node scripts/zip.ts"
   },
   "devDependencies": {
     "@types/archiver": "^8.0.0",
