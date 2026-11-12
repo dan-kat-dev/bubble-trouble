@@ -27,6 +27,12 @@
   gap: 4px;
 }
 
+.search {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 4px;
+}
+
 .info {
   margin: 0 0 6px;
   min-height: 1.4em;

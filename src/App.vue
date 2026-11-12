@@ -26,6 +26,7 @@ export default defineComponent({
       mode: 'nested' as Mode,
       metric: 'faces' as SizeMetric,
       clusterBy: 'branch' as ClusterBy,
+      search: '',
       hoverNode: null as OutlineNode | null,
       // markRaw: Vue shouldn't wrap the source or the tree in reactive proxies.
       // The tree is replaced whole on every reload, never edited in place.
@@ -45,13 +46,44 @@ export default defineComponent({
     },
 
     /** The props every view takes. Only used once the tree has loaded. */
-    viewProps(): { tree: OutlineNode; metric: SizeMetric; selectedIds: Set<number>; hoverDefinitionId: number | null } {
+    viewProps(): {
+      tree: OutlineNode;
+      metric: SizeMetric;
+      selectedIds: Set<number>;
+      hoverDefinitionId: number | null;
+      search: string;
+    } {
       return {
         tree: this.tree!,
         metric: this.metric,
         selectedIds: this.selectedIds,
         hoverDefinitionId: this.hoverNode?.definitionId ?? null,
+        search: this.search,
       };
+    },
+
+    /** Definition id → how many instances of it are in the model. */
+    instanceCounts(): Map<number, number> {
+      const counts = new Map<number, number>();
+      if (!this.tree) return counts;
+      for (const node of descendants(this.tree)) {
+        if (node.definitionId !== null) counts.set(node.definitionId, (counts.get(node.definitionId) ?? 0) + 1);
+      }
+      return counts;
+    },
+
+    /** The line under the toolbar: the hovered thing, or a summary of the model. */
+    info(): string {
+      const node = this.hoverNode;
+      const tree = this.tree;
+      if (!tree) return '';
+      if (!node) {
+        const mock = this.source.kind === 'mock' ? ' · fake model' : '';
+        return `${tree.name} · ${this.nodeCount} groups and components · ${tree.faces.toLocaleString()} faces${mock}`;
+      }
+      const count = node.kind === 'component' ? this.instanceCounts.get(node.definitionId!) ?? 1 : 1;
+      const copies = count > 1 ? ` · ${count} copies` : '';
+      return `${node.name} · ${node.faces.toLocaleString()} faces · ${node.edges.toLocaleString()} edges${copies}`;
     },
   },
 
@@ -136,10 +168,8 @@ export default defineComponent({
       </label>
     </div>
 
-    <p class="muted info">
-      {{ tree.name }} · {{ nodeCount }} groups and components · {{ tree.faces.toLocaleString() }} faces
-      <span v-if="source.kind === 'mock'"> · fake model</span>
-    </p>
+    <input v-model="search" class="search" type="search" placeholder="Search by name" />
+    <p class="muted info">{{ info }}</p>
 
     <FreeBubbles v-if="mode === 'free'" v-bind="viewProps" :cluster-by="clusterBy" @select="select" @hover="hoverNode = $event" />
     <NestedBubbles v-else-if="mode === 'nested'" v-bind="viewProps" @select="select" @hover="hoverNode = $event" />
