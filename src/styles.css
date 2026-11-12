@@ -11,3 +11,45 @@
 .error {
   color: light-dark(#c0392b, #ff8a7a);
 }
+
+/* ---------- Views ---------- */
+
+.viz {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 75vh; /* keep the whole view visible; the drawing scales to fit */
+  user-select: none;
+}
+
+.viz .shape {
+  cursor: pointer;
+}
+
+.viz .shape > circle,
+.viz .shape > rect {
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke; /* stroke stays 1px however the svg scales */
+}
+
+.viz text {
+  fill: var(--su-text);
+  font-size: 11px;
+  pointer-events: none;
+}
+
+.viz .shape.twin > circle,
+.viz .shape.twin > rect {
+  stroke: var(--su-text);
+  stroke-width: 2;
+}
+
+.viz .shape.selected > circle,
+.viz .shape.selected > rect {
+  stroke: var(--su-text-accent);
+  stroke-width: 3;
+}
+
+.viz .shape.dim {
+  opacity: 0.15;
+}

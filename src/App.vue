@@ -1,15 +1,20 @@
 <script lang="ts">
 import { defineComponent, markRaw } from 'vue';
-import { descendants, type OutlineNode } from './model/outline';
+import { descendants, type OutlineNode, type SizeMetric } from './model/outline';
 import { createSource } from './sketchup/create-source';
 import type { ModelSource } from './sketchup/source';
+import NestedBubbles from './viz/NestedBubbles.vue';
 
 /** Re-reading the model is heavy, so wait for a burst of edits to settle. */
 const RELOAD_DEBOUNCE_MS = 250;
 
 export default defineComponent({
+  components: { NestedBubbles },
+
   data() {
     return {
+      metric: 'faces' as SizeMetric,
+      hoverNode: null as OutlineNode | null,
       // markRaw: Vue shouldn't wrap the source or the tree in reactive proxies.
       // The tree is replaced whole on every reload, never edited in place.
       source: markRaw(createSource()) as ModelSource,
@@ -85,5 +90,13 @@ export default defineComponent({
       {{ nodeCount }} groups and components · {{ tree.faces.toLocaleString() }} faces
       <span v-if="source.kind === 'mock'"> · fake model</span>
     </p>
+    <NestedBubbles
+      :tree="tree"
+      :metric="metric"
+      :selected-ids="selectedIds"
+      :hover-definition-id="hoverNode?.definitionId ?? null"
+      @select="select"
+      @hover="hoverNode = $event"
+    />
   </template>
 </template>
