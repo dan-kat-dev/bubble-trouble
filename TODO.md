@@ -5,3 +5,4 @@
 - [ ] Check if you can change the width of a sidebar type panel as a SU extension (see QUESTIONS.md #6)
 - [ ] Match SketchUp CSS using the CSS example extension they have (planned in PLAN.md)
 - [ ] Ruby desktop version: reuse the app inside an `HtmlDialog` and add a `ModelSource` that talks to Ruby over `postMessage`. All SketchUp calls already go through `src/sketchup/`.
+- [ ] Make the Ruby version as KISS and DRY as possible
