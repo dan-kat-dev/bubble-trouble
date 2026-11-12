@@ -12,6 +12,29 @@
   color: light-dark(#c0392b, #ff8a7a);
 }
 
+/* ---------- Toolbar ---------- */
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  margin-bottom: 6px;
+}
+
+.toolbar .modes {
+  display: flex;
+  gap: 4px;
+}
+
+.info {
+  margin: 0 0 6px;
+  min-height: 1.4em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* ---------- Views ---------- */
 
 .viz {

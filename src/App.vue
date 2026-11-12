@@ -3,17 +3,29 @@ import { defineComponent, markRaw } from 'vue';
 import { descendants, type OutlineNode, type SizeMetric } from './model/outline';
 import { createSource } from './sketchup/create-source';
 import type { ModelSource } from './sketchup/source';
+import FreeBubbles, { type ClusterBy } from './viz/FreeBubbles.vue';
 import NestedBubbles from './viz/NestedBubbles.vue';
+import Treemap from './viz/Treemap.vue';
 
 /** Re-reading the model is heavy, so wait for a burst of edits to settle. */
 const RELOAD_DEBOUNCE_MS = 250;
 
+type Mode = 'free' | 'nested' | 'treemap';
+const MODES: { id: Mode; label: string }[] = [
+  { id: 'free', label: 'Free' },
+  { id: 'nested', label: 'Nested' },
+  { id: 'treemap', label: 'Treemap' },
+];
+
 export default defineComponent({
-  components: { NestedBubbles },
+  components: { FreeBubbles, NestedBubbles, Treemap },
 
   data() {
     return {
+      modes: MODES,
+      mode: 'nested' as Mode,
       metric: 'faces' as SizeMetric,
+      clusterBy: 'branch' as ClusterBy,
       hoverNode: null as OutlineNode | null,
       // markRaw: Vue shouldn't wrap the source or the tree in reactive proxies.
       // The tree is replaced whole on every reload, never edited in place.
@@ -30,6 +42,16 @@ export default defineComponent({
   computed: {
     nodeCount(): number {
       return this.tree ? descendants(this.tree).length : 0;
+    },
+
+    /** The props every view takes. Only used once the tree has loaded. */
+    viewProps(): { tree: OutlineNode; metric: SizeMetric; selectedIds: Set<number>; hoverDefinitionId: number | null } {
+      return {
+        tree: this.tree!,
+        metric: this.metric,
+        selectedIds: this.selectedIds,
+        hoverDefinitionId: this.hoverNode?.definitionId ?? null,
+      };
     },
   },
 
@@ -85,18 +107,42 @@ export default defineComponent({
   <p v-if="status === 'connecting'" class="muted">Connecting…</p>
   <p v-else-if="status === 'error'" class="error">Couldn't read the model: {{ error }}</p>
   <template v-else-if="tree">
-    <h2>{{ tree.name }}</h2>
-    <p class="muted">
-      {{ nodeCount }} groups and components · {{ tree.faces.toLocaleString() }} faces
+    <div class="toolbar">
+      <div class="modes">
+        <button
+          v-for="m in modes"
+          :key="m.id"
+          class="button"
+          :class="{ secondary: mode !== m.id }"
+          @click="mode = m.id"
+        >
+          {{ m.label }}
+        </button>
+      </div>
+      <label>
+        Size
+        <select v-model="metric">
+          <option value="faces">Faces</option>
+          <option value="edges">Edges</option>
+        </select>
+      </label>
+      <label v-if="mode === 'free'">
+        Group by
+        <select v-model="clusterBy">
+          <option value="branch">Top-level</option>
+          <option value="definition">Definition</option>
+          <option value="kind">Type</option>
+        </select>
+      </label>
+    </div>
+
+    <p class="muted info">
+      {{ tree.name }} · {{ nodeCount }} groups and components · {{ tree.faces.toLocaleString() }} faces
       <span v-if="source.kind === 'mock'"> · fake model</span>
     </p>
-    <NestedBubbles
-      :tree="tree"
-      :metric="metric"
-      :selected-ids="selectedIds"
-      :hover-definition-id="hoverNode?.definitionId ?? null"
-      @select="select"
-      @hover="hoverNode = $event"
-    />
+
+    <FreeBubbles v-if="mode === 'free'" v-bind="viewProps" :cluster-by="clusterBy" @select="select" @hover="hoverNode = $event" />
+    <NestedBubbles v-else-if="mode === 'nested'" v-bind="viewProps" @select="select" @hover="hoverNode = $event" />
+    <Treemap v-else v-bind="viewProps" @select="select" @hover="hoverNode = $event" />
   </template>
 </template>
