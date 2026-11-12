@@ -1,6 +1,7 @@
 # TODO
 
-- [ ] Use TS not JS everywhere I can
-- [ ] Check if you can change the width of a sidebar type panel as a SU extension
-- [ ] Match SketchUp CSS using the CSS example extension they have
-- [ ] Ruby desktop version: reuse `src/` inside an `HtmlDialog` and swap the `SketchUpApi` calls for messages to Ruby. Keep SketchUp calls in one place as the logic grows.
+- [ ] Use TS not JS everywhere I can (planned in PLAN.md)
+- [ ] Swap the hand-written `src/sketchup/sketchup-api.d.ts` for the official `@sketchup/sketchup-js-api` package once it's on npm (see QUESTIONS.md #1)
+- [ ] Check if you can change the width of a sidebar type panel as a SU extension (see QUESTIONS.md #6)
+- [ ] Match SketchUp CSS using the CSS example extension they have (planned in PLAN.md)
+- [ ] Ruby desktop version: reuse the app inside an `HtmlDialog` and add a `ModelSource` that talks to Ruby over `postMessage`. All SketchUp calls already go through `src/sketchup/`.
