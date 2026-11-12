@@ -63,9 +63,13 @@ export function fitLabel(text: string, width: number): string {
 const PALETTE = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#6250d6', '#008300', '#e34948'];
 export const NEUTRAL = '#888780';
 
-/** Top-level entity id → color. A node's color is its top-level ancestor's. */
+/**
+ * Top-level entity id → color. A node's color is its top-level ancestor's.
+ * Picked from the entity id, not the position, so colors don't reshuffle when
+ * something is added or removed.
+ */
 export function branchColors(tree: OutlineNode): Map<number, string> {
-  return new Map(tree.children.map((child, i) => [child.entityId, PALETTE[i % PALETTE.length]]));
+  return new Map(tree.children.map((child) => [child.entityId, PALETTE[child.entityId % PALETTE.length]]));
 }
 
 // ---------------------------------------------------------------------------
