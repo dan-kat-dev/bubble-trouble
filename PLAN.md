@@ -31,13 +31,16 @@ draw them in three switchable views, and stay in sync with the model.
 | Piece | Choice | Why |
 |---|---|---|
 | Build and dev server | **Vite** | Fast, handles TypeScript and Vue, hot reload while developing |
-| UI | **Vue 3** (`<script setup lang="ts">`) | Toolbar, search, mode switcher; renders the SVG shapes directly |
+| UI | **Vue 3**, Options API (`<script lang="ts">` + `defineComponent`), no composables | Toolbar, search, mode switcher; renders the SVG shapes directly |
 | Language | **TypeScript everywhere** | App code, Vue components, Vite config and the Node scripts (Node 24 runs `.ts` directly) |
 | Layout math | **`d3-hierarchy`** (`pack`, `treemap`) | Only the math: give it a nested object, get back x, y and sizes. No D3 DOM code. |
 | Physics (free bubbles) | **`d3-force`** | Collision and clustering. Also math only; Vue draws the circles. |
 | Animation (nested and treemap) | Small spring animator of our own | Each shape springs from its old position and size to its new one. Feels physical, stays predictable. |
 | Styling | SketchUp's shared `sketchup-extension.css` from their CDN | Native look, dark mode, `--su-*` color variables |
 | Zip | `archiver` | Packs the built extension |
+
+**Keep it simple.** Plain classes and functions for logic, Options API
+components for UI, no extra state libraries.
 
 **No D3 DOM code.** D3's confusing part is selecting and updating page elements
 (`d3.select(...).data(...).join(...)`). We skip that entirely: D3 only computes
