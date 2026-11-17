@@ -4,62 +4,28 @@
  *
  * d3's pack() computes where every circle goes. When the model changes, the
  * tweener glides each circle from its old spot to its new one; new circles
- * grow out of their parent and removed ones pop.
+ * grow out of their parent and removed ones pop. Every frame, the circles go
+ * to the canvas renderer (see CanvasView).
  */
 import { defineComponent, markRaw } from 'vue';
 import { pack } from 'd3-hierarchy';
 import { parentKey, type OutlineNode } from '../model/outline';
-import {
-  type Bounds,
-  NEUTRAL,
-  Tweener,
-  VIEW_H,
-  VIEW_W,
-  nodeColors,
-  clamp01,
-  fitLabel,
-  focusZoom,
-  hierarchyFor,
-  shapeClass,
-  solidFill,
-  tooltip,
-  vizEmits,
-  vizProps,
-} from './shared';
-
-interface Circle {
-  key: string;
-  node: OutlineNode;
-  x: number;
-  y: number;
-  r: number;
-  opacity: number;
-  color: string;
-  isGroup: boolean;
-}
+import type { Shape } from './canvas';
+import CanvasView from './canvas-view';
+import { type Bounds, NEUTRAL, Tweener, VIEW_H, VIEW_W, clamp01, hierarchyFor, nodeColors } from './shared';
 
 export default defineComponent({
-  props: vizProps,
-  emits: vizEmits,
+  extends: CanvasView,
 
   data() {
     return {
-      width: VIEW_W,
-      height: VIEW_H,
-      circles: [] as Circle[],
+      // Not reactive: nothing in the template reads these.
       /** Where every circle ends up, for zooming without chasing the animation. */
-      targetBounds: [] as Bounds[],
-      // Not reactive: helpers the template never reads directly.
+      targetBounds: markRaw([] as Bounds[]),
       tweener: null as Tweener | null,
       nodes: markRaw(new Map<string, OutlineNode>()),
       colors: markRaw(new Map<string, string>()),
     };
-  },
-
-  computed: {
-    zoom() {
-      return focusZoom(this.targetBounds, this.focusKey);
-    },
   },
 
   watch: {
@@ -101,6 +67,7 @@ export default defineComponent({
         [...targets].map(([key, [x, y, r]]) => ({ key, x0: x - r, y0: y - r, x1: x + r, y1: y + r }))
       );
       this.colors = markRaw(new Map([...this.colors, ...nodeColors(this.tree, this.palette)])); // keep colors of leaving shapes
+      this.updateZoom();
 
       tweener.animateTo(
         targets,
@@ -122,64 +89,32 @@ export default defineComponent({
       // Forget nodes that finished leaving.
       for (const key of this.nodes.keys()) if (!current.has(key)) this.nodes.delete(key);
 
-      this.circles = [...current].map(([key, [x, y, r, opacity]]) => {
+      const shapes: Shape[] = [];
+      for (const [key, [x, y, r, opacity]] of current) {
         const node = this.nodes.get(key)!;
-        return {
-          key,
+        // Nodes at the depth limit hide their insides, so they're drawn as leaves.
+        const container = node.children.length > 0 && node.depth < this.maxDepth;
+        shapes.push({
           node,
           x,
           y,
           r: Math.max(0, r),
           opacity: clamp01(opacity),
-          color: this.colors.get(node.key) ?? NEUTRAL,
-          // Nodes at the depth limit hide their insides, so they're drawn as leaves.
-          isGroup: node.children.length > 0 && node.depth < this.maxDepth,
-        };
-      });
+          color: this.colors.get(key) ?? NEUTRAL,
+          container,
+          label: container ? 'none' : 'center',
+        });
+      }
+      this.renderer?.setShapes(shapes);
     },
 
-    shapeClass(node: OutlineNode) {
-      return shapeClass(node, this);
+    zoomBounds(): Bounds[] {
+      return this.targetBounds;
     },
-
-    tooltip,
-    fitLabel,
-    solidFill,
   },
 });
 </script>
 
 <template>
-  <svg class="viz" :viewBox="`0 0 ${width} ${height}`" @click.self="$emit('select', null)">
-    <!-- Shapes zoomed past the drawing's edges get clipped. -->
-    <clipPath id="nested-clip"><rect :width="width" :height="height" /></clipPath>
-    <g clip-path="url(#nested-clip)">
-      <g class="zoom" :style="{ transform: zoom.transform }">
-        <g
-          v-for="c in circles"
-          :key="c.key"
-          class="shape"
-          :class="shapeClass(c.node)"
-          :opacity="c.opacity"
-          @click.stop="$emit('select', c.node)"
-          @dblclick.stop="$emit('open', c.node)"
-          @mouseenter="$emit('hover', c.node)"
-          @mouseleave="$emit('hover', null)"
-        >
-          <title>{{ tooltip(c.node) }}</title>
-          <circle :cx="c.x" :cy="c.y" :r="c.r" :style="{ fill: solidFill(c.color, c.isGroup) }" :stroke="c.color" />
-          <text
-            v-if="!c.isGroup && c.r * zoom.k > 16"
-            :x="c.x"
-            :y="c.y"
-            dy="0.35em"
-            text-anchor="middle"
-            :style="{ fontSize: `${11 / zoom.k}px` }"
-          >
-            {{ fitLabel(c.node.name, c.r * 2 * zoom.k) }}
-          </text>
-        </g>
-      </g>
-    </g>
-  </svg>
+  <canvas ref="canvas" class="viz" />
 </template>

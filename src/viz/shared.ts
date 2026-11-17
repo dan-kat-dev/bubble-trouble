@@ -1,5 +1,5 @@
 /**
- * Helpers shared by the views: props, colors, layout input and a tweener.
+ * Helpers shared by the views: props, colors, zoom, layout input and a tweener.
  */
 
 import type { PropType } from 'vue';
@@ -34,29 +34,13 @@ export const vizEmits = {
   hover: (_node: OutlineNode | null) => true,
 };
 
-/** CSS classes for a shape: group or component, selected, twin of the hovered one, or dimmed by search. */
-export function shapeClass(
-  node: OutlineNode,
-  props: { selectedKeys: Set<string>; hoverDefinitionId: number | null; search: string }
-): Record<string, boolean> {
-  const query = props.search.trim().toLowerCase();
-  const matches =
-    !query || node.name.toLowerCase().includes(query) || node.definitionName.toLowerCase().includes(query);
-  return {
-    group: node.kind === 'group',
-    selected: props.selectedKeys.has(node.key),
-    twin: props.hoverDefinitionId !== null && node.definitionId === props.hoverDefinitionId,
-    dim: !matches,
-  };
-}
-
 /** Hover text for a shape. */
 export function tooltip(node: OutlineNode): string {
   const kind = node.kind === 'group' ? 'Group' : `Component: ${node.definitionName}`;
   return `${node.name}\n${kind}\n${node.faces.toLocaleString()} faces · ${node.edges.toLocaleString()} edges`;
 }
 
-/** Cut a label to roughly fit a width (in view units). */
+/** Cut a label to roughly fit a width (in screen pixels, at 11px). */
 export function fitLabel(text: string, width: number): string {
   const max = Math.floor((width - 6) / 6.5);
   if (max < 3) return '';
@@ -81,14 +65,6 @@ export type PaletteId = keyof typeof PALETTES;
 
 export const NEUTRAL = '#888780';
 
-/**
- * A solid fill: the color mixed with the panel background. Looks like a
- * see-through tint, but inner shapes don't get muddied by the ones under them.
- * Containers get a light tint, so what's inside them stands out.
- */
-export function solidFill(color: string, container: boolean): string {
-  return `color-mix(in srgb, ${color} ${container ? 15 : 60}%, var(--su-bg, Canvas))`;
-}
 
 /**
  * Node key → color. Every instance of a component takes its definition's
@@ -125,14 +101,21 @@ export interface Bounds {
   y1: number;
 }
 
+/** Scale by k, then move by (tx, ty), in view units. */
+export interface Zoom {
+  k: number;
+  tx: number;
+  ty: number;
+}
+
 /**
- * A CSS transform that zooms onto the focused shape and everything inside it
- * (its key's descendants), plus the scale, so labels can stay the same size.
- * No focus, or nothing to focus on: no zoom. The rest of the shapes stay put.
+ * The zoom onto the focused shape and everything inside it (its key's
+ * descendants). No focus, or nothing to focus on: no zoom. The rest of the
+ * shapes stay put.
  */
-export function focusZoom(shapes: Bounds[], focusKey: string | null): { k: number; transform: string } {
+export function focusZoom(shapes: Bounds[], focusKey: string | null): Zoom {
   const inside = focusKey ? shapes.filter((s) => s.key === focusKey || s.key.startsWith(focusKey + '/')) : [];
-  if (inside.length === 0) return { k: 1, transform: 'none' };
+  if (inside.length === 0) return { k: 1, tx: 0, ty: 0 };
 
   const x0 = Math.min(...inside.map((s) => s.x0));
   const y0 = Math.min(...inside.map((s) => s.y0));
@@ -142,7 +125,7 @@ export function focusZoom(shapes: Bounds[], focusKey: string | null): { k: numbe
   // Center on it, but never pan past the drawing's edges into empty space.
   const tx = Math.min(0, Math.max(VIEW_W * (1 - k), VIEW_W / 2 - (k * (x0 + x1)) / 2));
   const ty = Math.min(0, Math.max(VIEW_H * (1 - k), VIEW_H / 2 - (k * (y0 + y1)) / 2));
-  return { k, transform: `translate(${tx}px, ${ty}px) scale(${k})` };
+  return { k, tx, ty };
 }
 
 // ---------------------------------------------------------------------------

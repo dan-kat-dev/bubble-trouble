@@ -6,61 +6,25 @@
 import { defineComponent, markRaw } from 'vue';
 import { treemap } from 'd3-hierarchy';
 import { parentKey, type OutlineNode } from '../model/outline';
-import {
-  type Bounds,
-  NEUTRAL,
-  Tweener,
-  VIEW_H,
-  VIEW_W,
-  nodeColors,
-  clamp01,
-  fitLabel,
-  focusZoom,
-  hierarchyFor,
-  shapeClass,
-  solidFill,
-  tooltip,
-  vizEmits,
-  vizProps,
-} from './shared';
+import type { Shape } from './canvas';
+import CanvasView from './canvas-view';
+import { type Bounds, NEUTRAL, Tweener, VIEW_H, VIEW_W, clamp01, hierarchyFor, nodeColors } from './shared';
 
 /** Room at the top of a group for its name. */
 const HEADER = 14;
 
-interface Box {
-  key: string;
-  node: OutlineNode;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  opacity: number;
-  color: string;
-  isGroup: boolean;
-}
-
 export default defineComponent({
-  props: vizProps,
-  emits: vizEmits,
+  extends: CanvasView,
 
   data() {
     return {
-      width: VIEW_W,
-      height: VIEW_H,
-      boxes: [] as Box[],
+      // Not reactive: nothing in the template reads these.
       /** Where every box ends up, for zooming without chasing the animation. */
-      targetBounds: [] as Bounds[],
-      // Not reactive: helpers the template never reads directly.
+      targetBounds: markRaw([] as Bounds[]),
       tweener: null as Tweener | null,
       nodes: markRaw(new Map<string, OutlineNode>()),
       colors: markRaw(new Map<string, string>()),
     };
-  },
-
-  computed: {
-    zoom() {
-      return focusZoom(this.targetBounds, this.focusKey);
-    },
   },
 
   watch: {
@@ -104,6 +68,7 @@ export default defineComponent({
       }
       this.targetBounds = markRaw([...targets].map(([key, [x, y, w, h]]) => ({ key, x0: x, y0: y, x1: x + w, y1: y + h })));
       this.colors = markRaw(new Map([...this.colors, ...nodeColors(this.tree, this.palette)])); // keep colors of leaving shapes
+      this.updateZoom();
 
       tweener.animateTo(
         // New boxes grow from the middle of the nearest ancestor on screen.
@@ -124,63 +89,32 @@ export default defineComponent({
       const current = this.tweener!.current;
       for (const key of this.nodes.keys()) if (!current.has(key)) this.nodes.delete(key);
 
-      this.boxes = [...current].map(([key, [x, y, w, h, opacity]]) => {
+      const shapes: Shape[] = [];
+      for (const [key, [x, y, w, h, opacity]] of current) {
         const node = this.nodes.get(key)!;
-        return {
-          key,
+        shapes.push({
           node,
           x,
           y,
           w: Math.max(0, w),
           h: Math.max(0, h),
           opacity: clamp01(opacity),
-          color: this.colors.get(node.key) ?? NEUTRAL,
+          color: this.colors.get(key) ?? NEUTRAL,
           // Nodes at the depth limit hide their insides, so they're drawn as leaves.
-          isGroup: node.children.length > 0 && node.depth < this.maxDepth,
-        };
-      });
+          container: node.children.length > 0 && node.depth < this.maxDepth,
+          label: 'corner',
+        });
+      }
+      this.renderer?.setShapes(shapes);
     },
 
-    shapeClass(node: OutlineNode) {
-      return shapeClass(node, this);
+    zoomBounds(): Bounds[] {
+      return this.targetBounds;
     },
-
-    tooltip,
-    fitLabel,
-    solidFill,
   },
 });
 </script>
 
 <template>
-  <svg class="viz" :viewBox="`0 0 ${width} ${height}`" @click.self="$emit('select', null)">
-    <!-- Shapes zoomed past the drawing's edges get clipped. -->
-    <clipPath id="treemap-clip"><rect :width="width" :height="height" /></clipPath>
-    <g clip-path="url(#treemap-clip)">
-      <g class="zoom" :style="{ transform: zoom.transform }">
-        <g
-          v-for="b in boxes"
-          :key="b.key"
-          class="shape"
-          :class="shapeClass(b.node)"
-          :opacity="b.opacity"
-          @click.stop="$emit('select', b.node)"
-          @dblclick.stop="$emit('open', b.node)"
-          @mouseenter="$emit('hover', b.node)"
-          @mouseleave="$emit('hover', null)"
-        >
-          <title>{{ tooltip(b.node) }}</title>
-          <rect :x="b.x" :y="b.y" :width="b.w" :height="b.h" rx="2" :style="{ fill: solidFill(b.color, b.isGroup) }" :stroke="b.color" />
-          <text
-            v-if="b.h * zoom.k > (b.isGroup ? 16 : 14)"
-            :x="b.x + 4 / zoom.k"
-            :y="b.y + 11 / zoom.k"
-            :style="{ fontSize: `${11 / zoom.k}px` }"
-          >
-            {{ fitLabel(b.node.name, b.w * zoom.k) }}
-          </text>
-        </g>
-      </g>
-    </g>
-  </svg>
+  <canvas ref="canvas" class="viz" />
 </template>

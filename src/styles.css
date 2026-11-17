@@ -54,9 +54,12 @@
 .viz {
   display: block;
   width: 100%;
-  height: auto;
+  aspect-ratio: 400 / 480; /* the views' drawing space (VIEW_W × VIEW_H) */
   max-height: 75vh; /* keep the whole view visible; the drawing scales to fit */
   user-select: none;
+  /* Not drawn: the canvas renderer reads these, so it follows SketchUp's light and dark mode. */
+  color: var(--su-text);
+  outline-color: var(--su-text-accent);
 }
 
 .viz-wrap {
@@ -83,52 +86,4 @@
 
 .zoom-out:hover {
   opacity: 1;
-}
-
-.viz .shape {
-  cursor: pointer;
-}
-
-/* Zooming onto the group open for editing. Labels counter-scale with it. */
-.viz .zoom {
-  transform-origin: 0 0;
-  transition: transform 0.6s ease;
-}
-
-.viz .zoom text {
-  transition: font-size 0.6s ease;
-}
-
-.viz .shape > circle,
-.viz .shape > rect {
-  stroke-width: 1;
-  vector-effect: non-scaling-stroke; /* stroke stays 1px however the svg scales */
-}
-
-/* Groups get a dashed outline, components a solid one. */
-.viz .shape.group > circle,
-.viz .shape.group > rect {
-  stroke-dasharray: 4 2;
-}
-
-.viz text {
-  fill: var(--su-text);
-  font-size: 11px;
-  pointer-events: none;
-}
-
-.viz .shape.twin > circle,
-.viz .shape.twin > rect {
-  stroke: var(--su-text);
-  stroke-width: 2;
-}
-
-.viz .shape.selected > circle,
-.viz .shape.selected > rect {
-  stroke: var(--su-text-accent);
-  stroke-width: 3;
-}
-
-.viz .shape.dim {
-  opacity: 0.15;
 }

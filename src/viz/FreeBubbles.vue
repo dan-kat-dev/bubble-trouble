@@ -4,6 +4,7 @@
  * physics (d3-force). Bubbles push each other apart and drift toward the
  * center of their cluster. When the model changes, existing bubbles keep
  * their place, new ones grow out of their parent, and removed ones shrink away.
+ * Every tick, the bubbles go to the canvas renderer (see CanvasView).
  */
 import { defineComponent, markRaw, type PropType } from 'vue';
 import {
@@ -16,7 +17,9 @@ import {
   type SimulationNodeDatum,
 } from 'd3-force';
 import { descendants, parentKey, type OutlineNode } from '../model/outline';
-import { NEUTRAL, VIEW_H, VIEW_W, fitLabel, focusZoom, nodeColors, shapeClass, solidFill, tooltip, vizEmits, vizProps } from './shared';
+import type { Shape } from './canvas';
+import CanvasView from './canvas-view';
+import { type Bounds, NEUTRAL, VIEW_H, VIEW_W, nodeColors } from './shared';
 
 export type ClusterBy = 'branch' | 'definition' | 'kind';
 
@@ -28,17 +31,6 @@ interface Bubble extends SimulationNodeDatum {
   leaving: boolean;
 }
 
-interface Drawn {
-  key: string;
-  node: OutlineNode;
-  x: number;
-  y: number;
-  r: number;
-  targetR: number;
-  color: string;
-  leaving: boolean;
-}
-
 function clusterOf(node: OutlineNode, by: ClusterBy): string {
   if (by === 'definition') return node.kind === 'group' ? 'group' : String(node.definitionId);
   if (by === 'kind') return node.kind;
@@ -46,33 +38,20 @@ function clusterOf(node: OutlineNode, by: ClusterBy): string {
 }
 
 export default defineComponent({
+  extends: CanvasView,
+
   props: {
-    ...vizProps,
     clusterBy: { type: String as PropType<ClusterBy>, default: 'branch' },
   },
-  emits: vizEmits,
 
   data() {
     return {
-      width: VIEW_W,
-      height: VIEW_H,
-      drawn: [] as Drawn[],
       // Not reactive: the simulation mutates these many times a second.
       bubbles: markRaw(new Map<string, Bubble>()),
       simulation: null as Simulation<Bubble, undefined> | null,
       collide: null as ForceCollide<Bubble> | null,
       colors: markRaw(new Map<string, string>()),
     };
-  },
-
-  computed: {
-    zoom() {
-      return focusZoom(
-        // Full-grown radii, so the zoom doesn't chase bubbles that are still growing.
-        this.drawn.map((b) => ({ key: b.key, x0: b.x - b.targetR, y0: b.y - b.targetR, x1: b.x + b.targetR, y1: b.y + b.targetR })),
-        this.focusKey
-      );
-    },
   },
 
   watch: {
@@ -178,60 +157,37 @@ export default defineComponent({
       if (removed) this.simulation!.nodes([...this.bubbles.values()]);
       this.collide!.radius((b) => b.r + 1.5); // radii change while growing
 
-      this.drawn = [...this.bubbles.values()].map((b) => ({
+      const shapes: Shape[] = [];
+      for (const b of this.bubbles.values()) {
+        shapes.push({
+          node: b.node,
+          x: b.x ?? 0,
+          y: b.y ?? 0,
+          r: b.r,
+          opacity: b.leaving ? 0.45 : 1,
+          color: this.colors.get(b.key) ?? NEUTRAL,
+          container: false,
+          label: 'center',
+        });
+      }
+      this.renderer?.setShapes(shapes);
+      this.updateZoom(); // bubbles drift, so the zoom follows them
+    },
+
+    /** Full-grown radii, so the zoom doesn't chase bubbles that are still growing. */
+    zoomBounds(): Bounds[] {
+      return [...this.bubbles.values()].map((b) => ({
         key: b.key,
-        node: b.node,
-        x: b.x ?? 0,
-        y: b.y ?? 0,
-        r: b.r,
-        targetR: b.targetR,
-        color: this.colors.get(b.key) ?? NEUTRAL,
-        leaving: b.leaving,
+        x0: (b.x ?? 0) - b.targetR,
+        y0: (b.y ?? 0) - b.targetR,
+        x1: (b.x ?? 0) + b.targetR,
+        y1: (b.y ?? 0) + b.targetR,
       }));
     },
-
-    shapeClass(node: OutlineNode) {
-      return shapeClass(node, this);
-    },
-
-    tooltip,
-    fitLabel,
-    solidFill,
   },
 });
 </script>
 
 <template>
-  <svg class="viz" :viewBox="`0 0 ${width} ${height}`" @click.self="$emit('select', null)">
-    <!-- Shapes zoomed past the drawing's edges get clipped. -->
-    <clipPath id="free-clip"><rect :width="width" :height="height" /></clipPath>
-    <g clip-path="url(#free-clip)">
-      <g class="zoom" :style="{ transform: zoom.transform }">
-        <g
-          v-for="b in drawn"
-          :key="b.key"
-          class="shape"
-          :class="shapeClass(b.node)"
-          :opacity="b.leaving ? 0.5 : 1"
-          @click.stop="$emit('select', b.node)"
-          @dblclick.stop="$emit('open', b.node)"
-          @mouseenter="$emit('hover', b.node)"
-          @mouseleave="$emit('hover', null)"
-        >
-          <title>{{ tooltip(b.node) }}</title>
-          <circle :cx="b.x" :cy="b.y" :r="b.r" :style="{ fill: solidFill(b.color, false) }" :stroke="b.color" />
-          <text
-            v-if="b.r * zoom.k > 16"
-            :x="b.x"
-            :y="b.y"
-            dy="0.35em"
-            text-anchor="middle"
-            :style="{ fontSize: `${11 / zoom.k}px` }"
-          >
-            {{ fitLabel(b.node.name, b.r * 2 * zoom.k) }}
-          </text>
-        </g>
-      </g>
-    </g>
-  </svg>
+  <canvas ref="canvas" class="viz" />
 </template>
