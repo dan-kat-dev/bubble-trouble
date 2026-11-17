@@ -76,6 +76,9 @@ export default defineComponent({
   },
 
   watch: {
+    palette() {
+      this.update();
+    },
     tree() {
       this.update();
     },
@@ -149,7 +152,7 @@ export default defineComponent({
       );
       const centerOf = (b: Bubble) => centers.get(clusterOf(b.node, this.clusterBy)) ?? { x: VIEW_W / 2, y: VIEW_H / 2 };
 
-      this.colors = markRaw(new Map([...this.colors, ...nodeColors(this.tree)])); // keep colors of leaving shapes
+      this.colors = markRaw(new Map([...this.colors, ...nodeColors(this.tree, this.palette)])); // keep colors of leaving shapes
       this.simulation!.force('x', forceX<Bubble>((b) => centerOf(b).x).strength(0.07))
         .force('y', forceY<Bubble>((b) => centerOf(b).y).strength(0.07))
         .nodes([...this.bubbles.values()])

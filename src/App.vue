@@ -7,19 +7,27 @@ import type { ModelSource } from './sketchup/source';
 import FreeBubbles, { type ClusterBy } from './viz/FreeBubbles.vue';
 import NestedBubbles from './viz/NestedBubbles.vue';
 import Treemap from './viz/Treemap.vue';
+import { PALETTES, type PaletteId } from './viz/shared';
 
 /** Re-reading the model is heavy, so wait for a burst of edits to settle. */
 const RELOAD_DEBOUNCE_MS = 250;
 
-/** Remembered per browser. Storage can be blocked, so never rely on it. */
-const ZOOM_KEY = 'bubble-trouble:zoom-to-selection';
-function loadZoomSetting(): boolean {
+/** Settings are remembered per browser. Storage can be blocked, so never rely on it. */
+function loadSetting(key: string, fallback: string): string {
   try {
-    return localStorage.getItem(ZOOM_KEY) !== 'off';
+    return localStorage.getItem(`bubble-trouble:${key}`) ?? fallback;
   } catch {
-    return true;
+    return fallback;
   }
 }
+function saveSetting(key: string, value: string): void {
+  try {
+    localStorage.setItem(`bubble-trouble:${key}`, value);
+  } catch {
+    // Not remembered; fine.
+  }
+}
+const savedPalette = loadSetting('palette', 'pastel');
 
 type Mode = 'free' | 'nested' | 'treemap';
 const MODES: { id: Mode; label: string }[] = [
@@ -36,7 +44,9 @@ export default defineComponent({
       modes: MODES,
       mode: 'nested' as Mode,
       clusterBy: 'branch' as ClusterBy,
-      zoomToSelection: loadZoomSetting(),
+      zoomToSelection: loadSetting('zoom-to-selection', 'on') !== 'off',
+      palettes: PALETTES,
+      palette: (savedPalette in PALETTES ? savedPalette : 'pastel') as PaletteId,
       search: '',
       hoverNode: null as OutlineNode | null,
       // markRaw: Vue shouldn't wrap the source or the tree in reactive proxies.
@@ -70,6 +80,7 @@ export default defineComponent({
       hoverDefinitionId: number | null;
       search: string;
       focusKey: string | null;
+      palette: PaletteId;
     } {
       return {
         tree: this.tree!,
@@ -78,6 +89,7 @@ export default defineComponent({
         search: this.search,
         // Node keys are entity-id paths, so the open group's key is its path.
         focusKey: this.activePath.length > 0 ? this.activePath.join('/') : null,
+        palette: this.palette,
       };
     },
 
@@ -126,11 +138,10 @@ export default defineComponent({
 
   watch: {
     zoomToSelection(on: boolean) {
-      try {
-        localStorage.setItem(ZOOM_KEY, on ? 'on' : 'off');
-      } catch {
-        // Not remembered; fine.
-      }
+      saveSetting('zoom-to-selection', on ? 'on' : 'off');
+    },
+    palette(id: PaletteId) {
+      saveSetting('palette', id);
     },
   },
 
@@ -195,6 +206,12 @@ export default defineComponent({
           <option value="branch">Top-level</option>
           <option value="definition">Definition</option>
           <option value="kind">Type</option>
+        </select>
+      </label>
+      <label title="Component colors. Groups are always gray.">
+        Colors
+        <select v-model="palette">
+          <option v-for="(p, id) in palettes" :key="id" :value="id">{{ p.label }}</option>
         </select>
       </label>
       <label title="Zoom SketchUp's camera to whatever is selected">

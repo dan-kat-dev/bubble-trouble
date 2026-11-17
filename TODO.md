@@ -8,6 +8,5 @@
 - [ ] Make the Ruby version as KISS and DRY as possible
 - [ ] Fuzzy-matching search (Levenshtein distance)
 - [ ] AI-powered search
-- [ ] Better colors
 - [ ] Hover tooltips with full names
 - [ ] Sort by recently edited mode

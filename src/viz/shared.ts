@@ -22,6 +22,7 @@ export const vizProps = {
   search: { type: String, default: '' },
   /** The group open for editing in SketchUp: the view zooms onto it. */
   focusKey: { type: String as PropType<string | null>, default: null },
+  palette: { type: String as PropType<PaletteId>, default: 'pastel' },
 } as const;
 
 export const vizEmits = {
@@ -59,28 +60,43 @@ export function fitLabel(text: string, width: number): string {
 }
 
 // ---------------------------------------------------------------------------
-// Colors: one per component definition or top-level group, same in every view
+// Colors: groups in quiet grays, components from a palette the user picks
 // ---------------------------------------------------------------------------
 
-const PALETTE = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#6250d6', '#008300', '#e34948'];
+/** Groups just organize, so they stay in the background: grays with a hint of hue. */
+const GROUP_GRAYS = ['#8b929c', '#9a948c', '#8e9893', '#968f9a'];
+
+/** Component palettes: eight colors each, similar in lightness so none shouts. */
+export const PALETTES = {
+  pastel: { label: 'Pastel', colors: ['#6fa8dc', '#f4978e', '#7ccba2', '#f6c26b', '#a99be0', '#ef9fc4', '#6cc5c9', '#c3cd6e'] },
+  muted: { label: 'Muted', colors: ['#6b8fb0', '#c98a72', '#7fa58a', '#c9a75e', '#9585b3', '#bd8299', '#689e9c', '#a39d6e'] },
+  vivid: { label: 'Vivid', colors: ['#3b82f6', '#f97316', '#10b981', '#eab308', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'] },
+  earth: { label: 'Earth', colors: ['#c06c4a', '#d9a35b', '#8a9a5b', '#5f8a8b', '#a0785a', '#c99b8a', '#6d7f5c', '#b8a172'] },
+} as const;
+export type PaletteId = keyof typeof PALETTES;
+
 export const NEUTRAL = '#888780';
 
 /**
  * Node key → color. Every instance of a component takes its definition's
- * color, wherever it's nested, so all copies match. A group takes its
- * parent's color (top-level groups get their own). Picked from ids, not
- * positions, so colors don't reshuffle when something is added or removed.
+ * palette color, wherever it's nested, so all copies match. A group takes a
+ * gray: its parent group's, or its own if its parent isn't a group. Picked
+ * from ids, not positions, so colors don't reshuffle on edits.
  */
-export function nodeColors(tree: OutlineNode): Map<string, string> {
+export function nodeColors(tree: OutlineNode, palette: PaletteId): Map<string, string> {
   const colors = new Map<string, string>();
-  const pick = (id: number) => PALETTE[id % PALETTE.length];
-  const visit = (node: OutlineNode, parentColor: string) => {
+  const components = PALETTES[palette].colors;
+  const visit = (node: OutlineNode, parent: OutlineNode | null) => {
     const color =
-      node.kind === 'component' ? pick(node.definitionId!) : node.depth === 1 ? pick(node.entityId) : parentColor;
+      node.kind === 'component'
+        ? components[node.definitionId! % components.length]
+        : parent?.kind === 'group'
+          ? colors.get(parent.key)!
+          : GROUP_GRAYS[node.entityId % GROUP_GRAYS.length];
     colors.set(node.key, color);
-    for (const child of node.children) visit(child, color);
+    for (const child of node.children) visit(child, node);
   };
-  for (const child of tree.children) visit(child, NEUTRAL);
+  for (const child of tree.children) visit(child, null);
   return colors;
 }
 

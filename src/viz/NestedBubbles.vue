@@ -62,6 +62,9 @@ export default defineComponent({
   },
 
   watch: {
+    palette() {
+      this.layout();
+    },
     tree() {
       this.layout();
     },
@@ -93,7 +96,7 @@ export default defineComponent({
       this.targetBounds = markRaw(
         [...targets].map(([key, [x, y, r]]) => ({ key, x0: x - r, y0: y - r, x1: x + r, y1: y + r }))
       );
-      this.colors = markRaw(new Map([...this.colors, ...nodeColors(this.tree)])); // keep colors of leaving shapes
+      this.colors = markRaw(new Map([...this.colors, ...nodeColors(this.tree, this.palette)])); // keep colors of leaving shapes
 
       tweener.animateTo(
         targets,

@@ -63,6 +63,9 @@ export default defineComponent({
   },
 
   watch: {
+    palette() {
+      this.layout();
+    },
     tree() {
       this.layout();
     },
@@ -96,7 +99,7 @@ export default defineComponent({
         this.nodes.set(d.data.key, d.data);
       }
       this.targetBounds = markRaw([...targets].map(([key, [x, y, w, h]]) => ({ key, x0: x, y0: y, x1: x + w, y1: y + h })));
-      this.colors = markRaw(new Map([...this.colors, ...nodeColors(this.tree)])); // keep colors of leaving shapes
+      this.colors = markRaw(new Map([...this.colors, ...nodeColors(this.tree, this.palette)])); // keep colors of leaving shapes
 
       tweener.animateTo(
         // New boxes grow from the middle of the nearest ancestor on screen.
