@@ -4,7 +4,7 @@
 - [ ] Swap the hand-written `src/sketchup/sketchup-api.d.ts` for the official `@sketchup/sketchup-js-api` package once it's on npm (see QUESTIONS.md #1)
 - [ ] Check if you can change the width of a sidebar type panel as a SU extension (see QUESTIONS.md #6)
 - [ ] Match SketchUp CSS using the CSS example extension they have (planned in PLAN.md)
-- [ ] Ruby desktop version: reuse the app inside an `HtmlDialog` and add a `ModelSource` that talks to Ruby over `postMessage`. All SketchUp calls already go through `src/sketchup/`.
+- [ ] Ruby desktop version: built in `ruby/` + `src/sketchup/ruby-source.ts`, not tested in SketchUp desktop yet
 - [ ] Make the Ruby version as KISS and DRY as possible
 - [ ] Fuzzy-matching search (Levenshtein distance)
 - [ ] AI-powered search
