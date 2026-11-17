@@ -69,6 +69,9 @@ export default defineComponent({
       panelSelectAt: 0,
       /** The panel's SketchUp calls, run one at a time (see run). */
       queue: Promise.resolve() as Promise<void>,
+      /** Shown in the info line for a moment, like an error from SketchUp. */
+      notice: '',
+      noticeTimer: undefined as ReturnType<typeof setTimeout> | undefined,
       status: 'connecting' as 'connecting' | 'ready' | 'error',
       error: '',
       unsubscribers: [] as (() => void)[],
@@ -137,6 +140,7 @@ export default defineComponent({
 
     /** The line under the toolbar: the hovered thing, or a summary of the model. */
     info(): string {
+      if (this.notice) return this.notice;
       const node = this.hoverNode;
       const tree = this.tree;
       if (!tree) return '';
@@ -199,7 +203,7 @@ export default defineComponent({
     selectionChanged(ids: Set<number>) {
       this.selectedIds = ids;
       const fromPanel = performance.now() - this.panelSelectAt < 1000;
-      if (this.zoomToSelection && ids.size > 0 && !fromPanel) this.run(() => this.source.zoomToSelection(), 'zoom');
+      if (this.zoomToSelection && ids.size > 0 && !fromPanel) this.run(() => this.source.zoomToSelection(), 'Zoom');
     },
 
     /**
@@ -209,8 +213,18 @@ export default defineComponent({
      * open had already cleared it, and zoom to nothing.
      */
     run(task: () => Promise<void>, what: string): Promise<void> {
-      this.queue = this.queue.then(task).catch((e) => console.error(`Bubble Trouble: ${what} failed`, e));
+      this.queue = this.queue.then(task).catch((e) => {
+        console.error(`Bubble Trouble: ${what} failed`, e);
+        this.showNotice(`${what} failed: ${e instanceof Error ? e.message : e}`);
+      });
       return this.queue;
+    },
+
+    /** A short message in the info line, for a few seconds. */
+    showNotice(text: string) {
+      this.notice = text;
+      clearTimeout(this.noticeTimer);
+      this.noticeTimer = setTimeout(() => (this.notice = ''), 6000);
     },
 
     /**
@@ -230,8 +244,8 @@ export default defineComponent({
       return this.run(async () => {
         await this.source.select(node);
         if (!this.zoomToSelection) return;
-        await (node ? this.source.zoomToSelection() : this.source.zoomExtents());
-      }, 'selection');
+        await (node ? this.source.zoomTo(node) : this.source.zoomExtents());
+      }, 'Selection');
     },
 
     /**
@@ -242,7 +256,7 @@ export default defineComponent({
     open(node: OutlineNode) {
       this.focusKey = node.key;
       this.expectActivePath(node.key);
-      return this.run(() => this.source.open(node), 'open');
+      return this.run(() => this.source.open(node), 'Open');
     },
 
     /** The user opened or closed a group in SketchUp: zoom onto it (or back out). */

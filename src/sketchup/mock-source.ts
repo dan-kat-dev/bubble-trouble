@@ -70,6 +70,7 @@ export class MockSource implements ModelSource {
   /** No camera to move. */
   async zoomToSelection(): Promise<void> {}
   async zoomExtents(): Promise<void> {}
+  async zoomTo(_node: OutlineNode): Promise<void> {}
 
   // -------------------------------------------------------------------------
   // Fake edits, for testing the animations

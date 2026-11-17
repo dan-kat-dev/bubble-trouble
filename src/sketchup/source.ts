@@ -30,6 +30,8 @@ export interface ModelSource {
   onActivePathChanged(callback: (path: number[]) => void): () => void;
   /** Move the SketchUp camera so the selection fills the view. */
   zoomToSelection(): Promise<void>;
+  /** Move the SketchUp camera so this node fills the view. */
+  zoomTo(node: OutlineNode): Promise<void>;
   /** Move the SketchUp camera to show the whole model. */
   zoomExtents(): Promise<void>;
 }

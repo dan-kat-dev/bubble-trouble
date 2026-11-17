@@ -114,6 +114,11 @@ export class RubySource implements ModelSource {
     this.ruby.zoomToSelection();
   }
 
+  /** Ruby handles calls in order, so the select before this has already happened. */
+  async zoomTo(_node: OutlineNode): Promise<void> {
+    this.ruby.zoomToSelection();
+  }
+
   async zoomExtents(): Promise<void> {
     this.ruby.zoomExtents();
   }

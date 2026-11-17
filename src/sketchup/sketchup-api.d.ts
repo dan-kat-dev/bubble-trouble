@@ -59,6 +59,8 @@ declare global {
     interface Group extends EntityBase {
       readonly name: string | undefined;
       readonly definitionId: number;
+      /** Its own coordinates → its parent's. */
+      readonly transform: Transformation;
       readonly entities: Entities;
       readonly hidden: boolean;
       readonly locked: boolean;
@@ -67,6 +69,8 @@ declare global {
     interface ComponentInstance extends EntityBase {
       readonly name: string | undefined;
       readonly definitionId: number;
+      /** Its own coordinates → its parent's. */
+      readonly transform: Transformation;
       readonly hidden: boolean;
       readonly locked: boolean;
     }
@@ -135,7 +139,8 @@ declare global {
       readonly up: Vector3d;
       /** Degrees. Perspective cameras only. */
       readonly fieldOfView: number;
-      readonly data: { readonly type: string };
+      /** type is a CameraType: 0 parallel, 1 perspective, 2 perspective 2D, 3 parallel 2D. */
+      readonly data: { readonly type: number };
       withOrientation(eye: Point3Like, target: Point3Like, up: Vector3d): Camera;
       /** Inches. Parallel (orthographic) cameras only. */
       withHeight(height: number): Camera;

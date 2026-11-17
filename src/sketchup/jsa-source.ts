@@ -176,9 +176,8 @@ export class JsaSource implements ModelSource {
    * bounds, keep the camera's direction, and back the eye off until a sphere
    * around them fits the field of view.
    *
-   * Not verified in SketchUp yet: we assume bounds are in the open group's
-   * coordinates, so they're moved to world coordinates with the active path's
-   * transform (QUESTIONS.md #9).
+   * Not verified in SketchUp yet: we assume an entity's bounds are in its
+   * parent's coordinates, like in Ruby (QUESTIONS.md #9).
    */
   async zoomToSelection(): Promise<void> {
     const model = this.requireModel();
@@ -188,6 +187,22 @@ export class JsaSource implements ModelSource {
 
     const [boxes, activePath] = await Promise.all([model.getEntitiesBoundsByIds(ids), model.getActivePath()]);
     await this.frame(boxes.flatMap(corners).map((p) => activePath.transform.applyTo(p)));
+  }
+
+  /**
+   * Frames the node's own instance, so it doesn't depend on what SketchUp
+   * reports as selected (right after a select, SketchUp Web may not have
+   * caught up yet). Its bounds are moved to world coordinates through its
+   * parents' transforms.
+   */
+  async zoomTo(node: OutlineNode): Promise<void> {
+    const target = this.instances.get(node.entityId);
+    if (!target) return;
+    const parents = node.path.slice(0, -1).map((id) => this.instances.get(id));
+    const [box] = await this.requireModel().getEntitiesBoundsByIds([target.sketchupId]);
+    const toWorld = (p: [number, number, number]) =>
+      parents.reduceRight<SU.Point3d | [number, number, number]>((q, parent) => parent?.transform.applyTo(q) ?? q, p);
+    await this.frame(corners(box).map(toWorld));
   }
 
   async zoomExtents(): Promise<void> {
@@ -212,7 +227,8 @@ export class JsaSource implements ModelSource {
     const eye = center.map((v, i) => v - (direction[i] / length) * distance);
 
     let next = camera.withOrientation(eye as [number, number, number], center as [number, number, number], camera.up);
-    if (camera.data.type !== 'perspective') next = next.withHeight(radius * 2);
+    const perspective = camera.data.type === 1 || camera.data.type === 2;
+    if (!perspective) next = next.withHeight(radius * 2);
     await model.view.setCamera(next, 0.4);
   }
 
