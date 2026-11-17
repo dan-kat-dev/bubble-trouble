@@ -52,6 +52,29 @@ npm run zip
 Builds into `dist/extension/` and writes `dist/bubble-trouble-<version>.zip`.
 Anyone can drag it into Extension Manager.
 
+## Desktop (Ruby)
+
+SketchUp desktop doesn't have the JS API yet, so `ruby/` opens the same app in
+a dialog and feeds it the model. Delete `ruby/` and
+`src/sketchup/ruby-source.ts` once desktop supports JS extensions.
+
+```bash
+npm run rbz
+```
+
+Writes `dist/bubble-trouble-<version>.rbz`. Install it from
+**Extensions > Extension Manager > Install Extension**, or unzip it into
+`%APPDATA%\SketchUp\SketchUp 20XX\SketchUp\Plugins\` and restart SketchUp.
+
+**Develop:** run `npm run desktop:link` once (loads `ruby/` from this repo,
+so uninstall the `.rbz` first), then `npm run dev` and start SketchUp. The
+dialog uses the dev server and hot-reloads; Ruby changes need a restart.
+
+**Debug:** right-click the dialog > Show DevTools. For Ruby, install the
+[SketchUp Ruby debugger](https://github.com/SketchUp/sketchup-ruby-debugger),
+run the VS Code task "SketchUp with Ruby debugger", then launch
+"Attach to SketchUp Ruby".
+
 ## Notes
 
 - The sidebar is SketchUp's own docked inspector column, so `width` and

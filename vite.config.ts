@@ -9,18 +9,24 @@
  *
  * Build: writes the extension to dist/extension/ with relative paths, because
  * a zip is served from wherever SketchUp unpacks it.
+ *
+ * Desktop build (--mode desktop): one self-contained dist/desktop/index.html
+ * for the Ruby extension's HtmlDialog. Everything is inlined because the
+ * dialog loads it from a file:// path, where Chromium blocks module scripts.
  */
 
 import { existsSync, readFileSync } from 'node:fs';
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
+import { viteSingleFile } from 'vite-plugin-singlefile';
 
 const PORT = 9000;
 const CERT = 'certs/localhost.pem';
 const KEY = 'certs/localhost-key.pem';
 const hasCerts = existsSync(CERT) && existsSync(KEY);
 
-export default defineConfig(({ command }) => {
+export default defineConfig(({ command, mode }) => {
+  const desktop = mode === 'desktop';
   if (command === 'serve' && !hasCerts) {
     console.warn(
       '\n  No certs/ found, serving plain HTTP. SketchUp needs HTTPS: run "npm run certs" (see README).\n'
@@ -28,10 +34,12 @@ export default defineConfig(({ command }) => {
   }
 
   return {
-    plugins: [vue()],
+    plugins: desktop ? [vue(), viteSingleFile()] : [vue()],
     base: './',
+    // The web manifest and icon aren't part of the desktop build.
+    publicDir: desktop ? false : 'public',
     build: {
-      outDir: 'dist/extension',
+      outDir: desktop ? 'dist/desktop' : 'dist/extension',
       emptyOutDir: true,
     },
     server: {

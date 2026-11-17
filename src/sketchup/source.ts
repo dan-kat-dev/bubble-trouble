@@ -3,15 +3,15 @@
  *
  * Implementations:
  *   - JsaSource:  SketchUp Web, through the SketchUp JS API.
+ *   - RubySource: SketchUp desktop, through the Ruby half in ruby/.
  *   - MockSource: a fake model, for running in a normal browser.
- * A future Ruby desktop version adds one that talks to Ruby over postMessage
- * (see TODO.md). The views never know which one they're using.
+ * The views never know which one they're using.
  */
 
 import type { OutlineNode } from '../model/outline';
 
 export interface ModelSource {
-  readonly kind: 'sketchup' | 'mock';
+  readonly kind: 'sketchup' | 'desktop' | 'mock';
   connect(): Promise<void>;
   /** Read the whole model into an outline tree. */
   load(): Promise<OutlineNode>;

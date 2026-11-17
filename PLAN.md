@@ -116,10 +116,11 @@ interface ModelSource {
 }
 ```
 
-There are two implementations: `jsa-source.ts` for SketchUp Web, and
-`mock-source.ts` for the browser. A future **Ruby desktop** version adds a
-third, which sends the same requests to Ruby over `postMessage` from inside an
-`HtmlDialog`. The views and UI stay unchanged.
+There are three implementations: `jsa-source.ts` for SketchUp Web,
+`mock-source.ts` for the browser, and `ruby-source.ts` for SketchUp desktop.
+The desktop one talks to `ruby/bubble_trouble/main.rb` through the
+`HtmlDialog` bridge (`sketchup.*` callbacks one way, `execute_script` the
+other). The views and UI stay unchanged.
 
 ### Reading the model
 
@@ -180,5 +181,4 @@ yet: whether opening the path adds an undo step (see QUESTIONS.md).
 - Zoom into a bubble and breadcrumbs.
 - Canvas rendering if big models get slow in SVG.
 - More "size by" and "color by" options: tag, material, definition.
-- Ruby desktop version (see TODO.md).
 - Sibling tools for other panels (Tags, Materials).
