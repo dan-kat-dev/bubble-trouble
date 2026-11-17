@@ -8,7 +8,6 @@
  */
 
 export type NodeKind = 'model' | 'group' | 'component';
-export type SizeMetric = 'faces' | 'edges';
 
 export interface OutlineNode {
   /**

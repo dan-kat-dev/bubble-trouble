@@ -1,6 +1,6 @@
 <script lang="ts">
 import { defineComponent, markRaw } from 'vue';
-import { descendants, type OutlineNode, type SizeMetric } from './model/outline';
+import { descendants, type OutlineNode } from './model/outline';
 import { createSource } from './sketchup/create-source';
 import { MockSource } from './sketchup/mock-source';
 import type { ModelSource } from './sketchup/source';
@@ -25,7 +25,6 @@ export default defineComponent({
     return {
       modes: MODES,
       mode: 'nested' as Mode,
-      metric: 'faces' as SizeMetric,
       clusterBy: 'branch' as ClusterBy,
       search: '',
       hoverNode: null as OutlineNode | null,
@@ -54,14 +53,12 @@ export default defineComponent({
     /** The props every view takes. Only used once the tree has loaded. */
     viewProps(): {
       tree: OutlineNode;
-      metric: SizeMetric;
       selectedIds: Set<number>;
       hoverDefinitionId: number | null;
       search: string;
     } {
       return {
         tree: this.tree!,
-        metric: this.metric,
         selectedIds: this.selectedIds,
         hoverDefinitionId: this.hoverNode?.definitionId ?? null,
         search: this.search,
@@ -157,13 +154,6 @@ export default defineComponent({
           {{ m.label }}
         </button>
       </div>
-      <label>
-        Size
-        <select v-model="metric">
-          <option value="faces">Faces</option>
-          <option value="edges">Edges</option>
-        </select>
-      </label>
       <label v-if="mode === 'free'">
         Group by
         <select v-model="clusterBy">

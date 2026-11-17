@@ -12,7 +12,7 @@ draw them in three switchable views, and stay in sync with the model.
      (top-level parent, definition, or type). Good for sorting and comparing.
    - **Nested bubbles**: circle packing. Bubbles inside bubbles show nesting.
    - **Treemap**: nested rectangles. Same data, no wasted space.
-2. **Size by** face count or edge count.
+2. **Size** is faces + edges together.
 3. **Hover** a bubble: every instance of the same definition lights up.
 4. **Click** a bubble: select it in SketchUp, including nested ones, without
    double-clicking into each group.

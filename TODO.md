@@ -12,5 +12,4 @@
 - [ ] Better colors
 - [ ] Hover tooltips with full names
 - [ ] When something is selected, zoom in on that group
-- [ ] Size option that uses faces AND edges totals together
 - [ ] Sort by recently edited mode

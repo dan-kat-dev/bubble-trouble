@@ -4,7 +4,7 @@
 
 import type { PropType } from 'vue';
 import { hierarchy, type HierarchyNode } from 'd3-hierarchy';
-import type { OutlineNode, SizeMetric } from '../model/outline';
+import type { OutlineNode } from '../model/outline';
 
 /** Every view draws into this coordinate space and scales to fit the panel. */
 export const VIEW_W = 400;
@@ -16,7 +16,6 @@ export const VIEW_H = 480;
 
 export const vizProps = {
   tree: { type: Object as PropType<OutlineNode>, required: true },
-  metric: { type: String as PropType<SizeMetric>, required: true },
   selectedIds: { type: Object as PropType<Set<number>>, required: true },
   /** Instances of this definition get highlighted (the hovered one's). */
   hoverDefinitionId: { type: Number as PropType<number | null>, default: null },
@@ -77,13 +76,13 @@ export function branchColors(tree: OutlineNode): Map<number, string> {
 // ---------------------------------------------------------------------------
 
 /**
- * The tree as a d3 hierarchy, sized by the chosen metric. d3's sum() adds each
+ * The tree as a d3 hierarchy, sized by faces + edges. d3's sum() adds each
  * node's own count to its children's, which gives the nested totals. Minimum 1
  * so empty containers still show up.
  */
-export function hierarchyFor(tree: OutlineNode, metric: SizeMetric): HierarchyNode<OutlineNode> {
+export function hierarchyFor(tree: OutlineNode): HierarchyNode<OutlineNode> {
   return hierarchy(tree, (node) => node.children)
-    .sum((node) => Math.max(1, metric === 'faces' ? node.ownFaces : node.ownEdges))
+    .sum((node) => Math.max(1, node.ownFaces + node.ownEdges))
     .sort((a, b) => (b.value ?? 0) - (a.value ?? 0));
 }
 

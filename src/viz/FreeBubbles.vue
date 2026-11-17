@@ -68,9 +68,6 @@ export default defineComponent({
     tree() {
       this.update();
     },
-    metric() {
-      this.update();
-    },
     clusterBy() {
       this.update();
     },
@@ -98,7 +95,7 @@ export default defineComponent({
     /** Sync bubbles with the tree, then reheat the simulation. */
     update() {
       const nodes = descendants(this.tree);
-      const size = (n: OutlineNode) => Math.max(1, this.metric === 'faces' ? n.faces : n.edges);
+      const size = (n: OutlineNode) => Math.max(1, n.faces + n.edges);
 
       // Scale radii so all the bubbles together fill about 40% of the view.
       const totalSize = nodes.reduce((sum, n) => sum + size(n), 0);

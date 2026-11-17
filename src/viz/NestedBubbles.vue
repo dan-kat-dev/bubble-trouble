@@ -55,9 +55,6 @@ export default defineComponent({
     tree() {
       this.layout();
     },
-    metric() {
-      this.layout();
-    },
   },
 
   created() {
@@ -75,7 +72,7 @@ export default defineComponent({
   methods: {
     layout() {
       const tweener = this.tweener!;
-      const root = pack<OutlineNode>().size([VIEW_W, VIEW_H]).padding(3)(hierarchyFor(this.tree, this.metric));
+      const root = pack<OutlineNode>().size([VIEW_W, VIEW_H]).padding(3)(hierarchyFor(this.tree));
 
       const targets = new Map<string, number[]>();
       for (const d of root.descendants()) {

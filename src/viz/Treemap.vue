@@ -56,9 +56,6 @@ export default defineComponent({
     tree() {
       this.layout();
     },
-    metric() {
-      this.layout();
-    },
   },
 
   created() {
@@ -80,7 +77,7 @@ export default defineComponent({
         .size([VIEW_W, VIEW_H])
         .paddingOuter(2)
         .paddingTop((d) => (d.depth > 0 && d.children ? HEADER : 2))
-        .paddingInner(1)(hierarchyFor(this.tree, this.metric));
+        .paddingInner(1)(hierarchyFor(this.tree));
 
       const targets = new Map<string, number[]>();
       for (const d of root.descendants()) {
