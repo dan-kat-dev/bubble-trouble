@@ -66,25 +66,21 @@ const PALETTE = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#6250d6
 export const NEUTRAL = '#888780';
 
 /**
- * Node key → color. A component takes its definition's color, so every copy
- * matches, and so does everything inside it. Anything else takes its
- * top-level group's color. Picked from ids, not positions, so colors don't
- * reshuffle when something is added or removed.
+ * Node key → color. Every instance of a component takes its definition's
+ * color, wherever it's nested, so all copies match. A group takes its
+ * parent's color (top-level groups get their own). Picked from ids, not
+ * positions, so colors don't reshuffle when something is added or removed.
  */
 export function nodeColors(tree: OutlineNode): Map<string, string> {
   const colors = new Map<string, string>();
   const pick = (id: number) => PALETTE[id % PALETTE.length];
-  const visit = (node: OutlineNode, color: string, inComponent: boolean) => {
-    if (!inComponent && node.kind === 'component') {
-      color = pick(node.definitionId!);
-      inComponent = true;
-    } else if (node.depth === 1) {
-      color = pick(node.entityId);
-    }
+  const visit = (node: OutlineNode, parentColor: string) => {
+    const color =
+      node.kind === 'component' ? pick(node.definitionId!) : node.depth === 1 ? pick(node.entityId) : parentColor;
     colors.set(node.key, color);
-    for (const child of node.children) visit(child, color, inComponent);
+    for (const child of node.children) visit(child, color);
   };
-  for (const child of tree.children) visit(child, NEUTRAL, false);
+  for (const child of tree.children) visit(child, NEUTRAL);
   return colors;
 }
 
