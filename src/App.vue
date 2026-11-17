@@ -44,6 +44,8 @@ export default defineComponent({
       source: markRaw(createSource()) as ModelSource,
       tree: null as OutlineNode | null,
       selectedIds: new Set<number>(),
+      /** Entity ids of the groups open for editing in SketchUp, outermost first. */
+      activePath: [] as number[],
       status: 'connecting' as 'connecting' | 'ready' | 'error',
       error: '',
       unsubscribers: [] as (() => void)[],
@@ -67,12 +69,15 @@ export default defineComponent({
       selectedIds: Set<number>;
       hoverDefinitionId: number | null;
       search: string;
+      focusKey: string | null;
     } {
       return {
         tree: this.tree!,
         selectedIds: this.selectedIds,
         hoverDefinitionId: this.hoverNode?.definitionId ?? null,
         search: this.search,
+        // Node keys are entity-id paths, so the open group's key is its path.
+        focusKey: this.activePath.length > 0 ? this.activePath.join('/') : null,
       };
     },
 
@@ -107,6 +112,7 @@ export default defineComponent({
       await this.reload();
       this.unsubscribers.push(this.source.onModelChanged(() => this.scheduleReload()));
       this.unsubscribers.push(this.source.onSelectionChanged((ids) => this.selectionChanged(ids)));
+      this.unsubscribers.push(this.source.onActivePathChanged((path) => (this.activePath = path)));
       this.status = 'ready';
     } catch (e) {
       this.fail('Failed to connect', e);
@@ -209,6 +215,7 @@ export default defineComponent({
       <button class="button secondary" @click="mock.deleteRandom()">Delete</button>
       <button class="button secondary" @click="mock.explodeRandom()">Explode</button>
       <button class="button secondary" @click="mock.addRandom()">Add</button>
+      <button class="button secondary" @click="mock.openRandom()">Open group</button>
     </div>
   </template>
 </template>

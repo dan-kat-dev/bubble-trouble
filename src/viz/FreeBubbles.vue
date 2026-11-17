@@ -16,7 +16,7 @@ import {
   type SimulationNodeDatum,
 } from 'd3-force';
 import { descendants, parentKey, type OutlineNode } from '../model/outline';
-import { NEUTRAL, VIEW_H, VIEW_W, nodeColors, fitLabel, shapeClass, tooltip, vizEmits, vizProps } from './shared';
+import { NEUTRAL, VIEW_H, VIEW_W, fitLabel, focusZoom, nodeColors, shapeClass, tooltip, vizEmits, vizProps } from './shared';
 
 export type ClusterBy = 'branch' | 'definition' | 'kind';
 
@@ -34,6 +34,7 @@ interface Drawn {
   x: number;
   y: number;
   r: number;
+  targetR: number;
   color: string;
   leaving: boolean;
 }
@@ -62,6 +63,16 @@ export default defineComponent({
       collide: null as ForceCollide<Bubble> | null,
       colors: markRaw(new Map<string, string>()),
     };
+  },
+
+  computed: {
+    zoom() {
+      return focusZoom(
+        // Full-grown radii, so the zoom doesn't chase bubbles that are still growing.
+        this.drawn.map((b) => ({ key: b.key, x0: b.x - b.targetR, y0: b.y - b.targetR, x1: b.x + b.targetR, y1: b.y + b.targetR })),
+        this.focusKey
+      );
+    },
   },
 
   watch: {
@@ -167,6 +178,7 @@ export default defineComponent({
         x: b.x ?? 0,
         y: b.y ?? 0,
         r: b.r,
+        targetR: b.targetR,
         color: this.colors.get(b.key) ?? NEUTRAL,
         leaving: b.leaving,
       }));
@@ -184,21 +196,34 @@ export default defineComponent({
 
 <template>
   <svg class="viz" :viewBox="`0 0 ${width} ${height}`" @click.self="$emit('select', null)">
-    <g
-      v-for="b in drawn"
-      :key="b.key"
-      class="shape"
-      :class="shapeClass(b.node)"
-      :opacity="b.leaving ? 0.5 : 1"
-      @click.stop="$emit('select', b.node)"
-      @mouseenter="$emit('hover', b.node)"
-      @mouseleave="$emit('hover', null)"
-    >
-      <title>{{ tooltip(b.node) }}</title>
-      <circle :cx="b.x" :cy="b.y" :r="b.r" :fill="b.color" :fill-opacity="0.6" :stroke="b.color" />
-      <text v-if="b.r > 16" :x="b.x" :y="b.y" dy="0.35em" text-anchor="middle">
-        {{ fitLabel(b.node.name, b.r * 2) }}
-      </text>
+    <!-- Shapes zoomed past the drawing's edges get clipped. -->
+    <clipPath id="free-clip"><rect :width="width" :height="height" /></clipPath>
+    <g clip-path="url(#free-clip)">
+      <g class="zoom" :style="{ transform: zoom.transform }">
+        <g
+          v-for="b in drawn"
+          :key="b.key"
+          class="shape"
+          :class="shapeClass(b.node)"
+          :opacity="b.leaving ? 0.5 : 1"
+          @click.stop="$emit('select', b.node)"
+          @mouseenter="$emit('hover', b.node)"
+          @mouseleave="$emit('hover', null)"
+        >
+          <title>{{ tooltip(b.node) }}</title>
+          <circle :cx="b.x" :cy="b.y" :r="b.r" :fill="b.color" :fill-opacity="0.6" :stroke="b.color" />
+          <text
+            v-if="b.r * zoom.k > 16"
+            :x="b.x"
+            :y="b.y"
+            dy="0.35em"
+            text-anchor="middle"
+            :style="{ fontSize: `${11 / zoom.k}px` }"
+          >
+            {{ fitLabel(b.node.name, b.r * 2 * zoom.k) }}
+          </text>
+        </g>
+      </g>
     </g>
   </svg>
 </template>

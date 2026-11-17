@@ -20,6 +20,8 @@ export const vizProps = {
   /** Instances of this definition get highlighted (the hovered one's). */
   hoverDefinitionId: { type: Number as PropType<number | null>, default: null },
   search: { type: String, default: '' },
+  /** The group open for editing in SketchUp: the view zooms onto it. */
+  focusKey: { type: String as PropType<string | null>, default: null },
 } as const;
 
 export const vizEmits = {
@@ -84,6 +86,38 @@ export function nodeColors(tree: OutlineNode): Map<string, string> {
   };
   for (const child of tree.children) visit(child, NEUTRAL, false);
   return colors;
+}
+
+// ---------------------------------------------------------------------------
+// Zoom: fill the view with the group open for editing
+// ---------------------------------------------------------------------------
+
+export interface Bounds {
+  key: string;
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
+/**
+ * A CSS transform that zooms onto the focused shape and everything inside it
+ * (its key's descendants), plus the scale, so labels can stay the same size.
+ * No focus, or nothing to focus on: no zoom. The rest of the shapes stay put.
+ */
+export function focusZoom(shapes: Bounds[], focusKey: string | null): { k: number; transform: string } {
+  const inside = focusKey ? shapes.filter((s) => s.key === focusKey || s.key.startsWith(focusKey + '/')) : [];
+  if (inside.length === 0) return { k: 1, transform: 'none' };
+
+  const x0 = Math.min(...inside.map((s) => s.x0));
+  const y0 = Math.min(...inside.map((s) => s.y0));
+  const x1 = Math.max(...inside.map((s) => s.x1));
+  const y1 = Math.max(...inside.map((s) => s.y1));
+  const k = Math.max(1, 0.92 * Math.min(VIEW_W / Math.max(1, x1 - x0), VIEW_H / Math.max(1, y1 - y0)));
+  // Center on it, but never pan past the drawing's edges into empty space.
+  const tx = Math.min(0, Math.max(VIEW_W * (1 - k), VIEW_W / 2 - (k * (x0 + x1)) / 2));
+  const ty = Math.min(0, Math.max(VIEW_H * (1 - k), VIEW_H / 2 - (k * (y0 + y1)) / 2));
+  return { k, transform: `translate(${tx}px, ${ty}px) scale(${k})` };
 }
 
 // ---------------------------------------------------------------------------

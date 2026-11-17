@@ -4,7 +4,8 @@
 # It opens the same Vue app in an HtmlDialog and answers its few requests:
 #
 #   JS -> Ruby: sketchup.getSnapshot(), sketchup.select(path), sketchup.zoomToSelection()
-#   Ruby -> JS: bubbleTrouble.snapshot(data), .modelChanged(), .selectionChanged(ids)
+#   Ruby -> JS: bubbleTrouble.snapshot(data), .modelChanged(), .selectionChanged(ids),
+#               .activePathChanged(ids)
 #
 # The other half is src/sketchup/ruby-source.ts. When desktop gets the JS API,
 # delete ruby/ and that file.
@@ -34,6 +35,7 @@ module BubbleTrouble
     @dialog.add_action_callback('getSnapshot') do |_context|
       send_js('snapshot', snapshot(Sketchup.active_model))
       send_selection
+      send_active_path
     end
     @dialog.add_action_callback('select') do |_context, path|
       select(Sketchup.active_model, path)
@@ -91,7 +93,8 @@ module BubbleTrouble
   # ---------------------------------------------------------------------------
 
   # `path` is entity ids from the top level down. Opens the parents (like
-  # double-clicking into them), then selects the last one.
+  # double-clicking into them), then selects the last one. An empty path
+  # clears the selection and closes any open group.
   def self.select(model, path)
     instances = []
     entities = model.entities
@@ -104,11 +107,19 @@ module BubbleTrouble
     end
 
     model.selection.clear
-    return if instances.empty?
+    if instances.empty?
+      model.active_path = nil # an empty path: back to the top level
+      return
+    end
 
     parents = instances[0...-1]
     model.active_path = parents.empty? ? nil : parents
     model.selection.add(instances.last)
+  end
+
+  # The groups and components open for editing, outermost first.
+  def self.send_active_path
+    send_js('activePathChanged', (Sketchup.active_model.active_path || []).map(&:entityID))
   end
 
   def self.send_selection
@@ -126,6 +137,10 @@ module BubbleTrouble
     end
     alias_method :onTransactionUndo, :onTransactionCommit
     alias_method :onTransactionRedo, :onTransactionCommit
+
+    def onActivePathChanged(_model)
+      BubbleTrouble.send_active_path
+    end
   end
 
   class SelectionWatcher < Sketchup::SelectionObserver

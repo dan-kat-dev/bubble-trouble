@@ -104,6 +104,11 @@ export class JsaSource implements ModelSource {
     return () => handle.stop();
   }
 
+  onActivePathChanged(callback: (path: number[]) => void): () => void {
+    const handle = this.requireModel().observeActivePath((activePath) => callback(activePath.path.map((e) => e.id)));
+    return () => handle.stop();
+  }
+
   onSelectionChanged(callback: (entityIds: Set<number>) => void): () => void {
     const model = this.requireModel();
     const handle = model.observeSelectionMetadata(async () => {
@@ -128,6 +133,9 @@ export class JsaSource implements ModelSource {
     const model = this.requireModel();
     if (!node || node.kind === 'model') {
       await model.updateSelection([], 'replace');
+      if ((await model.getActivePath()).path.length > 0) {
+        await model.performOperation((op) => op.modelSetActivePath([]), 'Bubble Trouble: close path');
+      }
       return;
     }
 

@@ -17,10 +17,15 @@ export interface ModelSource {
   load(): Promise<OutlineNode>;
   /** Called after edits, undo, redo or a model switch. Returns an unsubscribe. */
   onModelChanged(callback: () => void): () => void;
-  /** Select this node in the model, or clear the selection with null. */
+  /** Select this node in the model, or clear the selection and go back to the top level with null. */
   select(node: OutlineNode | null): Promise<void>;
   /** Called with the entity ids of selected groups and components. Returns an unsubscribe. */
   onSelectionChanged(callback: (entityIds: Set<number>) => void): () => void;
+  /**
+   * Called with the entity ids of the groups and components open for editing,
+   * outermost first (empty at the top level). Returns an unsubscribe.
+   */
+  onActivePathChanged(callback: (path: number[]) => void): () => void;
   /** Move the SketchUp camera so the selection fills the view. */
   zoomToSelection(): Promise<void>;
 }

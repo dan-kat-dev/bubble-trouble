@@ -7,7 +7,8 @@
  *
  *   JS → Ruby: sketchup.getSnapshot(), sketchup.select(path), sketchup.zoomToSelection()
  *              (the `sketchup` object is injected by HtmlDialog)
- *   Ruby → JS: bubbleTrouble.snapshot(data), .modelChanged(), .selectionChanged(ids)
+ *   Ruby → JS: bubbleTrouble.snapshot(data), .modelChanged(), .selectionChanged(ids),
+ *              .activePathChanged(ids)
  *
  * Ruby sends the same snapshot shape the other sources build, so the tree and
  * the views don't change. When desktop gets the JS API, delete this file and
@@ -39,6 +40,7 @@ declare global {
         snapshot(data: RubySnapshot): void;
         modelChanged(): void;
         selectionChanged(entityIds: number[]): void;
+        activePathChanged(entityIds: number[]): void;
       }
     | undefined;
 }
@@ -50,6 +52,7 @@ export class RubySource implements ModelSource {
   private pendingLoads: ((tree: OutlineNode) => void)[] = [];
   private modelListeners = new Set<() => void>();
   private selectionListeners = new Set<(ids: Set<number>) => void>();
+  private activePathListeners = new Set<(path: number[]) => void>();
 
   constructor(ruby: RubyBridge) {
     this.ruby = ruby;
@@ -67,6 +70,7 @@ export class RubySource implements ModelSource {
         const ids = new Set(entityIds);
         this.selectionListeners.forEach((cb) => cb(ids));
       },
+      activePathChanged: (entityIds) => this.activePathListeners.forEach((cb) => cb(entityIds)),
     };
   }
 
@@ -92,6 +96,11 @@ export class RubySource implements ModelSource {
   onSelectionChanged(callback: (ids: Set<number>) => void): () => void {
     this.selectionListeners.add(callback);
     return () => this.selectionListeners.delete(callback);
+  }
+
+  onActivePathChanged(callback: (path: number[]) => void): () => void {
+    this.activePathListeners.add(callback);
+    return () => this.activePathListeners.delete(callback);
   }
 
   async zoomToSelection(): Promise<void> {

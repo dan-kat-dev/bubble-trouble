@@ -7,6 +7,7 @@ import { defineComponent, markRaw } from 'vue';
 import { treemap } from 'd3-hierarchy';
 import { parentKey, type OutlineNode } from '../model/outline';
 import {
+  type Bounds,
   NEUTRAL,
   Tweener,
   VIEW_H,
@@ -14,6 +15,7 @@ import {
   nodeColors,
   clamp01,
   fitLabel,
+  focusZoom,
   hierarchyFor,
   shapeClass,
   tooltip,
@@ -45,11 +47,19 @@ export default defineComponent({
       width: VIEW_W,
       height: VIEW_H,
       boxes: [] as Box[],
+      /** Where every box ends up, for zooming without chasing the animation. */
+      targetBounds: [] as Bounds[],
       // Not reactive: helpers the template never reads directly.
       tweener: null as Tweener | null,
       nodes: markRaw(new Map<string, OutlineNode>()),
       colors: markRaw(new Map<string, string>()),
     };
+  },
+
+  computed: {
+    zoom() {
+      return focusZoom(this.targetBounds, this.focusKey);
+    },
   },
 
   watch: {
@@ -85,6 +95,7 @@ export default defineComponent({
         targets.set(d.data.key, [d.x0, d.y0, d.x1 - d.x0, d.y1 - d.y0, 1]);
         this.nodes.set(d.data.key, d.data);
       }
+      this.targetBounds = markRaw([...targets].map(([key, [x, y, w, h]]) => ({ key, x0: x, y0: y, x1: x + w, y1: y + h })));
       this.colors = markRaw(new Map([...this.colors, ...nodeColors(this.tree)])); // keep colors of leaving shapes
 
       tweener.animateTo(
@@ -134,21 +145,32 @@ export default defineComponent({
 
 <template>
   <svg class="viz" :viewBox="`0 0 ${width} ${height}`" @click.self="$emit('select', null)">
-    <g
-      v-for="b in boxes"
-      :key="b.key"
-      class="shape"
-      :class="shapeClass(b.node)"
-      :opacity="b.opacity"
-      @click.stop="$emit('select', b.node)"
-      @mouseenter="$emit('hover', b.node)"
-      @mouseleave="$emit('hover', null)"
-    >
-      <title>{{ tooltip(b.node) }}</title>
-      <rect :x="b.x" :y="b.y" :width="b.w" :height="b.h" rx="2" :fill="b.color" :fill-opacity="b.isGroup ? 0.12 : 0.6" :stroke="b.color" />
-      <text v-if="b.isGroup ? b.h > 16 : b.h > 14" :x="b.x + 4" :y="b.y + 11">
-        {{ fitLabel(b.node.name, b.w) }}
-      </text>
+    <!-- Shapes zoomed past the drawing's edges get clipped. -->
+    <clipPath id="treemap-clip"><rect :width="width" :height="height" /></clipPath>
+    <g clip-path="url(#treemap-clip)">
+      <g class="zoom" :style="{ transform: zoom.transform }">
+        <g
+          v-for="b in boxes"
+          :key="b.key"
+          class="shape"
+          :class="shapeClass(b.node)"
+          :opacity="b.opacity"
+          @click.stop="$emit('select', b.node)"
+          @mouseenter="$emit('hover', b.node)"
+          @mouseleave="$emit('hover', null)"
+        >
+          <title>{{ tooltip(b.node) }}</title>
+          <rect :x="b.x" :y="b.y" :width="b.w" :height="b.h" rx="2" :fill="b.color" :fill-opacity="b.isGroup ? 0.12 : 0.6" :stroke="b.color" />
+          <text
+            v-if="b.h * zoom.k > (b.isGroup ? 16 : 14)"
+            :x="b.x + 4 / zoom.k"
+            :y="b.y + 11 / zoom.k"
+            :style="{ fontSize: `${11 / zoom.k}px` }"
+          >
+            {{ fitLabel(b.node.name, b.w * zoom.k) }}
+          </text>
+        </g>
+      </g>
     </g>
   </svg>
 </template>

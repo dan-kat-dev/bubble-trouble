@@ -63,6 +63,16 @@
   cursor: pointer;
 }
 
+/* Zooming onto the group open for editing. Labels counter-scale with it. */
+.viz .zoom {
+  transform-origin: 0 0;
+  transition: transform 0.6s ease;
+}
+
+.viz .zoom text {
+  transition: font-size 0.6s ease;
+}
+
 .viz .shape > circle,
 .viz .shape > rect {
   stroke-width: 1;
