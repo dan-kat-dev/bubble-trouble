@@ -69,6 +69,12 @@
   vector-effect: non-scaling-stroke; /* stroke stays 1px however the svg scales */
 }
 
+/* Groups get a dashed outline, components a solid one. */
+.viz .shape.group > circle,
+.viz .shape.group > rect {
+  stroke-dasharray: 4 2;
+}
+
 .viz text {
   fill: var(--su-text);
   font-size: 11px;

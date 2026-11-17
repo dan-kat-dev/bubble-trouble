@@ -27,7 +27,7 @@ export const vizEmits = {
   hover: (_node: OutlineNode | null) => true,
 };
 
-/** CSS classes for a shape: selected, twin of the hovered one, or dimmed by search. */
+/** CSS classes for a shape: group or component, selected, twin of the hovered one, or dimmed by search. */
 export function shapeClass(
   node: OutlineNode,
   props: { selectedIds: Set<number>; hoverDefinitionId: number | null; search: string }
@@ -36,6 +36,7 @@ export function shapeClass(
   const matches =
     !query || node.name.toLowerCase().includes(query) || node.definitionName.toLowerCase().includes(query);
   return {
+    group: node.kind === 'group',
     selected: props.selectedIds.has(node.entityId),
     twin: props.hoverDefinitionId !== null && node.definitionId === props.hoverDefinitionId,
     dim: !matches,

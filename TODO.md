@@ -8,7 +8,6 @@
 - [ ] Make the Ruby version as KISS and DRY as possible
 - [ ] Fuzzy-matching search (Levenshtein distance)
 - [ ] AI-powered search
-- [ ] Different outlines (or some other visual difference) for groups vs components
 - [ ] Better colors
 - [ ] Hover tooltips with full names
 - [ ] When something is selected, zoom in on that group
