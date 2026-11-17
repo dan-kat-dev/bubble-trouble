@@ -16,7 +16,7 @@ import {
   type SimulationNodeDatum,
 } from 'd3-force';
 import { descendants, parentKey, type OutlineNode } from '../model/outline';
-import { NEUTRAL, VIEW_H, VIEW_W, branchColors, fitLabel, shapeClass, tooltip, vizEmits, vizProps } from './shared';
+import { NEUTRAL, VIEW_H, VIEW_W, nodeColors, fitLabel, shapeClass, tooltip, vizEmits, vizProps } from './shared';
 
 export type ClusterBy = 'branch' | 'definition' | 'kind';
 
@@ -60,7 +60,7 @@ export default defineComponent({
       bubbles: markRaw(new Map<string, Bubble>()),
       simulation: null as Simulation<Bubble, undefined> | null,
       collide: null as ForceCollide<Bubble> | null,
-      colors: markRaw(new Map<number, string>()),
+      colors: markRaw(new Map<string, string>()),
     };
   },
 
@@ -138,7 +138,7 @@ export default defineComponent({
       );
       const centerOf = (b: Bubble) => centers.get(clusterOf(b.node, this.clusterBy)) ?? { x: VIEW_W / 2, y: VIEW_H / 2 };
 
-      this.colors = markRaw(branchColors(this.tree));
+      this.colors = markRaw(new Map([...this.colors, ...nodeColors(this.tree)])); // keep colors of leaving shapes
       this.simulation!.force('x', forceX<Bubble>((b) => centerOf(b).x).strength(0.07))
         .force('y', forceY<Bubble>((b) => centerOf(b).y).strength(0.07))
         .nodes([...this.bubbles.values()])
@@ -167,7 +167,7 @@ export default defineComponent({
         x: b.x ?? 0,
         y: b.y ?? 0,
         r: b.r,
-        color: this.colors.get(b.node.path[0]) ?? NEUTRAL,
+        color: this.colors.get(b.key) ?? NEUTRAL,
         leaving: b.leaving,
       }));
     },

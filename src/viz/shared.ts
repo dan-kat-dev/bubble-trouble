@@ -56,19 +56,33 @@ export function fitLabel(text: string, width: number): string {
 }
 
 // ---------------------------------------------------------------------------
-// Colors: one per top-level branch, so a branch keeps its color in every view
+// Colors: one per component definition or top-level group, same in every view
 // ---------------------------------------------------------------------------
 
 const PALETTE = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#6250d6', '#008300', '#e34948'];
 export const NEUTRAL = '#888780';
 
 /**
- * Top-level entity id → color. A node's color is its top-level ancestor's.
- * Picked from the entity id, not the position, so colors don't reshuffle when
- * something is added or removed.
+ * Node key → color. A component takes its definition's color, so every copy
+ * matches, and so does everything inside it. Anything else takes its
+ * top-level group's color. Picked from ids, not positions, so colors don't
+ * reshuffle when something is added or removed.
  */
-export function branchColors(tree: OutlineNode): Map<number, string> {
-  return new Map(tree.children.map((child) => [child.entityId, PALETTE[child.entityId % PALETTE.length]]));
+export function nodeColors(tree: OutlineNode): Map<string, string> {
+  const colors = new Map<string, string>();
+  const pick = (id: number) => PALETTE[id % PALETTE.length];
+  const visit = (node: OutlineNode, color: string, inComponent: boolean) => {
+    if (!inComponent && node.kind === 'component') {
+      color = pick(node.definitionId!);
+      inComponent = true;
+    } else if (node.depth === 1) {
+      color = pick(node.entityId);
+    }
+    colors.set(node.key, color);
+    for (const child of node.children) visit(child, color, inComponent);
+  };
+  for (const child of tree.children) visit(child, NEUTRAL, false);
+  return colors;
 }
 
 // ---------------------------------------------------------------------------

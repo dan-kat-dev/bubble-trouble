@@ -11,7 +11,7 @@ import {
   Tweener,
   VIEW_H,
   VIEW_W,
-  branchColors,
+  nodeColors,
   clamp01,
   fitLabel,
   hierarchyFor,
@@ -48,7 +48,7 @@ export default defineComponent({
       // Not reactive: helpers the template never reads directly.
       tweener: null as Tweener | null,
       nodes: markRaw(new Map<string, OutlineNode>()),
-      colors: markRaw(new Map<number, string>()),
+      colors: markRaw(new Map<string, string>()),
     };
   },
 
@@ -85,7 +85,7 @@ export default defineComponent({
         targets.set(d.data.key, [d.x0, d.y0, d.x1 - d.x0, d.y1 - d.y0, 1]);
         this.nodes.set(d.data.key, d.data);
       }
-      this.colors = markRaw(branchColors(this.tree));
+      this.colors = markRaw(new Map([...this.colors, ...nodeColors(this.tree)])); // keep colors of leaving shapes
 
       tweener.animateTo(
         // New boxes grow from the middle of the nearest ancestor on screen.
@@ -116,7 +116,7 @@ export default defineComponent({
           w: Math.max(0, w),
           h: Math.max(0, h),
           opacity: clamp01(opacity),
-          color: this.colors.get(node.path[0]) ?? NEUTRAL,
+          color: this.colors.get(node.key) ?? NEUTRAL,
           isGroup: node.children.length > 0,
         };
       });
