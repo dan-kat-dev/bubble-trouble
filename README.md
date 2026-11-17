@@ -2,6 +2,12 @@
 
 A visual outliner for SketchUp, letting intuitively see how big (aka how many faces & edges) each group/component in your model has, as well as navigate, selected, and find them in your model.
 
+
+
+https://github.com/user-attachments/assets/d80463d0-7c14-4d4f-8c24-a3126aaf3dd7
+
+
+
 This was started at a workshow to try out the new SketchUP JS API:
 [SketchUp JavaScript API](https://developer.trimble.com/docs/sketchup/jsa/welcome/)
 (SketchUp Web, JSA Labs).
