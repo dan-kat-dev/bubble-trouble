@@ -1,0 +1,17 @@
+{
+  // Debug the Ruby half of the desktop extension.
+  // 1. Terminal > Run Task > "SketchUp with Ruby debugger"
+  // 2. Run this config to attach. Breakpoints in ruby/ then work.
+  // The Vue app in the dialog: right-click it > Show DevTools.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Attach to SketchUp Ruby",
+      "type": "Ruby",
+      "request": "attach",
+      "remoteHost": "127.0.0.1",
+      "remotePort": "7000",
+      "remoteWorkspaceRoot": "${workspaceFolder}"
+    }
+  ]
+}
