@@ -16,7 +16,7 @@ import {
   type SimulationNodeDatum,
 } from 'd3-force';
 import { descendants, parentKey, type OutlineNode } from '../model/outline';
-import { NEUTRAL, VIEW_H, VIEW_W, fitLabel, focusZoom, nodeColors, shapeClass, tooltip, vizEmits, vizProps } from './shared';
+import { NEUTRAL, VIEW_H, VIEW_W, fitLabel, focusZoom, nodeColors, shapeClass, solidFill, tooltip, vizEmits, vizProps } from './shared';
 
 export type ClusterBy = 'branch' | 'definition' | 'kind';
 
@@ -193,6 +193,7 @@ export default defineComponent({
 
     tooltip,
     fitLabel,
+    solidFill,
   },
 });
 </script>
@@ -214,7 +215,7 @@ export default defineComponent({
           @mouseleave="$emit('hover', null)"
         >
           <title>{{ tooltip(b.node) }}</title>
-          <circle :cx="b.x" :cy="b.y" :r="b.r" :fill="b.color" :fill-opacity="0.6" :stroke="b.color" />
+          <circle :cx="b.x" :cy="b.y" :r="b.r" :style="{ fill: solidFill(b.color, false) }" :stroke="b.color" />
           <text
             v-if="b.r * zoom.k > 16"
             :x="b.x"

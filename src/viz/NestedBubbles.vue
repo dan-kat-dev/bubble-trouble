@@ -21,6 +21,7 @@ import {
   focusZoom,
   hierarchyFor,
   shapeClass,
+  solidFill,
   tooltip,
   vizEmits,
   vizProps,
@@ -139,6 +140,7 @@ export default defineComponent({
 
     tooltip,
     fitLabel,
+    solidFill,
   },
 });
 </script>
@@ -160,7 +162,7 @@ export default defineComponent({
           @mouseleave="$emit('hover', null)"
         >
           <title>{{ tooltip(c.node) }}</title>
-          <circle :cx="c.x" :cy="c.y" :r="c.r" :fill="c.color" :fill-opacity="c.isGroup ? 0.12 : 0.6" :stroke="c.color" />
+          <circle :cx="c.x" :cy="c.y" :r="c.r" :style="{ fill: solidFill(c.color, c.isGroup) }" :stroke="c.color" />
           <text
             v-if="!c.isGroup && c.r * zoom.k > 16"
             :x="c.x"

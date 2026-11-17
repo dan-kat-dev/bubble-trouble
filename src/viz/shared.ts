@@ -78,6 +78,15 @@ export type PaletteId = keyof typeof PALETTES;
 export const NEUTRAL = '#888780';
 
 /**
+ * A solid fill: the color mixed with the panel background. Looks like a
+ * see-through tint, but inner shapes don't get muddied by the ones under them.
+ * Containers get a light tint, so what's inside them stands out.
+ */
+export function solidFill(color: string, container: boolean): string {
+  return `color-mix(in srgb, ${color} ${container ? 15 : 60}%, var(--su-bg, Canvas))`;
+}
+
+/**
  * Node key → color. Every instance of a component takes its definition's
  * palette color, wherever it's nested, so all copies match. A group takes a
  * gray: its parent group's, or its own if its parent isn't a group. Picked
