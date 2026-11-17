@@ -6,10 +6,11 @@ import type { ModelSource } from './source';
 /**
  * SketchUp desktop (Ruby) when opened from the desktop extension, SketchUp Web
  * when running inside it, otherwise the mock house.
- * Add ?mock to the URL to force the mock.
+ * Add ?mock to the URL to force the mock, or ?mock=50 for a street of 50 houses.
  */
 export function createSource(): ModelSource {
-  if (new URLSearchParams(location.search).has('mock')) return new MockSource();
+  const mock = new URLSearchParams(location.search).get('mock');
+  if (mock !== null) return new MockSource(Number(mock) || 1);
 
   const ruby = globalThis.sketchup;
   if (ruby && typeof ruby.getSnapshot === 'function') return new RubySource(ruby);
