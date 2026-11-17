@@ -9,7 +9,8 @@
     "dev": "node scripts/dev-manifest.ts && vite",
     "build": "vue-tsc -b && vite build",
     "typecheck": "vue-tsc -b",
-    "zip": "npm run build && node scripts/zip.ts"
+    "zip": "npm run build && node scripts/zip.ts",
+    "build:desktop": "vue-tsc -b && vite build --mode desktop"
   },
   "devDependencies": {
     "@types/archiver": "^8.0.0",
@@ -21,6 +22,7 @@
     "archiver": "^8.0.0",
     "typescript": "^6.0.3",
     "vite": "^8.3.8",
+    "vite-plugin-singlefile": "^2.3.4",
     "vue-tsc": "^3.3.14"
   },
   "dependencies": {
