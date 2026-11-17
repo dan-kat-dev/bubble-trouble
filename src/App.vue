@@ -65,6 +65,10 @@ export default defineComponent({
       focusKey: null as string | null,
       /** Open paths we caused ourselves, so they don't move the view (see activePathChanged). A double-click causes the same one twice, so it's a list. */
       ownActivePaths: markRaw([] as string[]),
+      /** When the panel last selected something, so SketchUp's echo of it doesn't zoom twice. */
+      panelSelectAt: 0,
+      /** The panel's SketchUp calls, run one at a time (see run). */
+      queue: Promise.resolve() as Promise<void>,
       status: 'connecting' as 'connecting' | 'ready' | 'error',
       error: '',
       unsubscribers: [] as (() => void)[],
@@ -187,38 +191,58 @@ export default defineComponent({
       this.reloadTimer = setTimeout(() => this.reload(), RELOAD_DEBOUNCE_MS);
     },
 
-    /** Highlight the selection here, and frame it in SketchUp if that's on. */
+    /**
+     * Highlight the selection here, and frame it in SketchUp if that's on.
+     * Clicks in the panel zoom by themselves (see select), so this only zooms
+     * for selections made in SketchUp.
+     */
     selectionChanged(ids: Set<number>) {
       this.selectedIds = ids;
-      if (this.zoomToSelection && ids.size > 0) {
-        this.source.zoomToSelection().catch((e) => console.error('Bubble Trouble: zoom failed', e));
-      }
+      const fromPanel = performance.now() - this.panelSelectAt < 1000;
+      if (this.zoomToSelection && ids.size > 0 && !fromPanel) this.run(() => this.source.zoomToSelection(), 'zoom');
+    },
+
+    /**
+     * Run a SketchUp call after the ones before it have finished. They're
+     * async, and a double-click sends select, select, open in quick
+     * succession: without this, a zoom could read the selection after the
+     * open had already cleared it, and zoom to nothing.
+     */
+    run(task: () => Promise<void>, what: string): Promise<void> {
+      this.queue = this.queue.then(task).catch((e) => console.error(`Bubble Trouble: ${what} failed`, e));
+      return this.queue;
     },
 
     /**
      * Click: select in SketchUp. Selecting something nested opens its parents
      * there, but that isn't the user opening a group, so the view stays put.
      * Null (empty space, or the × button) also goes back to the whole model.
+     *
+     * Every click zooms SketchUp's camera (if that's on), even onto what's
+     * already selected: SketchUp doesn't report a selection that didn't change.
      */
-    async select(node: OutlineNode | null) {
+    select(node: OutlineNode | null) {
       this.expectActivePath(node ? node.path.slice(0, -1).join('/') : '');
       if (!node) this.focusKey = null;
-      try {
+      this.panelSelectAt = performance.now();
+      // Highlight it now, without waiting for SketchUp to report it back: it may not.
+      this.selectedIds = new Set(node ? [node.entityId] : []);
+      return this.run(async () => {
         await this.source.select(node);
-      } catch (e) {
-        console.error('Bubble Trouble: selection failed', e);
-      }
+        if (!this.zoomToSelection) return;
+        await (node ? this.source.zoomToSelection() : this.source.zoomExtents());
+      }, 'selection');
     },
 
-    /** Double-click: open it for editing in SketchUp and zoom the view onto it. */
-    async open(node: OutlineNode) {
+    /**
+     * Double-click: open it for editing in SketchUp and zoom the view onto it.
+     * The double-click's own two clicks already selected it and zoomed
+     * SketchUp's camera onto it, in order, before this runs.
+     */
+    open(node: OutlineNode) {
       this.focusKey = node.key;
       this.expectActivePath(node.key);
-      try {
-        await this.source.open(node);
-      } catch (e) {
-        console.error('Bubble Trouble: open failed', e);
-      }
+      return this.run(() => this.source.open(node), 'open');
     },
 
     /** The user opened or closed a group in SketchUp: zoom onto it (or back out). */

@@ -172,9 +172,9 @@ export class JsaSource implements ModelSource {
   // -------------------------------------------------------------------------
 
   /**
-   * The JS API has no "zoom to selection", so: take the selection's bounds,
-   * keep the camera's direction, and back the eye off until a sphere around
-   * the bounds fits the field of view.
+   * The JS API has no "zoom to selection" or "zoom extents", so: take the
+   * bounds, keep the camera's direction, and back the eye off until a sphere
+   * around them fits the field of view.
    *
    * Not verified in SketchUp yet: we assume bounds are in the open group's
    * coordinates, so they're moved to world coordinates with the active path's
@@ -186,14 +186,22 @@ export class JsaSource implements ModelSource {
     const ids = selection.drawingElements.map((e) => e.sketchupId);
     if (ids.length === 0) return;
 
-    const [boxes, activePath, camera] = await Promise.all([
-      model.getEntitiesBoundsByIds(ids),
-      model.getActivePath(),
-      model.view.getCamera(),
-    ]);
-    const points = boxes.flatMap(corners).map((p) => activePath.transform.applyTo(p));
-    const min = [0, 1, 2].map((i) => Math.min(...points.map((p) => xyz(p)[i])));
-    const max = [0, 1, 2].map((i) => Math.max(...points.map((p) => xyz(p)[i])));
+    const [boxes, activePath] = await Promise.all([model.getEntitiesBoundsByIds(ids), model.getActivePath()]);
+    await this.frame(boxes.flatMap(corners).map((p) => activePath.transform.applyTo(p)));
+  }
+
+  async zoomExtents(): Promise<void> {
+    const bounds = await this.requireModel().getBounds();
+    await this.frame(corners(bounds));
+  }
+
+  /** Point the camera, keeping its direction, so all these world points fit in view. */
+  private async frame(points: (SU.Point3d | [number, number, number])[]): Promise<void> {
+    const model = this.requireModel();
+    const camera = await model.view.getCamera();
+    const xyzOf = (p: SU.Point3d | [number, number, number]) => (Array.isArray(p) ? p : xyz(p));
+    const min = [0, 1, 2].map((i) => Math.min(...points.map((p) => xyzOf(p)[i])));
+    const max = [0, 1, 2].map((i) => Math.max(...points.map((p) => xyzOf(p)[i])));
     const center = min.map((v, i) => (v + max[i]) / 2);
     const radius = Math.max(1, Math.hypot(...max.map((v, i) => v - min[i])) / 2) * 1.1;
 

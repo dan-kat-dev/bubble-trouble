@@ -168,6 +168,8 @@ declare global {
       readonly view: View;
       getDefinitions(): Promise<readonly ComponentDefinition[]>;
       getActivePath(): Promise<ActivePath>;
+      /** The whole model's bounds, in world coordinates. */
+      getBounds(): Promise<BoundingBox>;
       /** Calls back right away, then whenever the user opens or closes a group. */
       observeActivePath(callback: (activePath: ActivePath) => void): ObserverHandle;
       getEntitiesBoundsByIds(ids: readonly SketchupId[]): Promise<BoundingBox[]>;

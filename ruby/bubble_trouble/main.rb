@@ -4,7 +4,7 @@
 # It opens the same Vue app in an HtmlDialog and answers its few requests:
 #
 #   JS -> Ruby: sketchup.getSnapshot(), sketchup.select(path), sketchup.open(path),
-#               sketchup.zoomToSelection()
+#               sketchup.zoomToSelection(), sketchup.zoomExtents()
 #   Ruby -> JS: bubbleTrouble.snapshot(data), .modelChanged(), .selectionChanged(ids),
 #               .activePathChanged(ids)
 #
@@ -47,6 +47,9 @@ module BubbleTrouble
     @dialog.add_action_callback('zoomToSelection') do |_context|
       model = Sketchup.active_model
       model.active_view.zoom(model.selection) unless model.selection.empty?
+    end
+    @dialog.add_action_callback('zoomExtents') do |_context|
+      Sketchup.active_model.active_view.zoom_extents
     end
     @dialog.set_on_closed { stop_watching }
 
