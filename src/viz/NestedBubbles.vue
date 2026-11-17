@@ -162,6 +162,7 @@ export default defineComponent({
           :class="shapeClass(c.node)"
           :opacity="c.opacity"
           @click.stop="$emit('select', c.node)"
+          @dblclick.stop="$emit('open', c.node)"
           @mouseenter="$emit('hover', c.node)"
           @mouseleave="$emit('hover', null)"
         >

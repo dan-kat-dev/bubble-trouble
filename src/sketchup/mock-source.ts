@@ -45,6 +45,13 @@ export class MockSource implements ModelSource {
     }, 30);
   }
 
+  async open(node: OutlineNode): Promise<void> {
+    setTimeout(() => {
+      this.setActivePath(node.path);
+      this.selectionListeners.forEach((cb) => cb(new Set()));
+    }, 30);
+  }
+
   onActivePathChanged(callback: (path: number[]) => void): () => void {
     this.activePathListeners.add(callback);
     return () => this.activePathListeners.delete(callback);

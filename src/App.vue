@@ -61,8 +61,10 @@ export default defineComponent({
       source: markRaw(createSource()) as ModelSource,
       tree: null as OutlineNode | null,
       selectedIds: new Set<number>(),
-      /** Entity ids of the groups open for editing in SketchUp, outermost first. */
-      activePath: [] as number[],
+      /** Key of the group or component the view is zoomed onto (null: the whole model). */
+      focusKey: null as string | null,
+      /** Open paths we caused ourselves, so they don't move the view (see activePathChanged). A double-click causes the same one twice, so it's a list. */
+      ownActivePaths: markRaw([] as string[]),
       status: 'connecting' as 'connecting' | 'ready' | 'error',
       error: '',
       unsubscribers: [] as (() => void)[],
@@ -96,15 +98,14 @@ export default defineComponent({
         maxDepth: this.maxDepth,
         hoverDefinitionId: this.hoverNode?.definitionId ?? null,
         search: this.search,
-        // Node keys are entity-id paths, so the open group's key is its path.
-        focusKey: this.activePath.length > 0 ? this.activePath.join('/') : null,
+        focusKey: this.focusKey,
         palette: this.palette,
       };
     },
 
     /** Nodes deeper than this aren't drawn. */
     maxDepth(): number {
-      return this.activePath.length + VISIBLE_LEVELS;
+      return (this.focusKey ? this.focusKey.split('/').length : 0) + VISIBLE_LEVELS;
     },
 
     /**
@@ -151,7 +152,7 @@ export default defineComponent({
       await this.reload();
       this.unsubscribers.push(this.source.onModelChanged(() => this.scheduleReload()));
       this.unsubscribers.push(this.source.onSelectionChanged((ids) => this.selectionChanged(ids)));
-      this.unsubscribers.push(this.source.onActivePathChanged((path) => (this.activePath = path)));
+      this.unsubscribers.push(this.source.onActivePathChanged((path) => this.activePathChanged(path)));
       this.status = 'ready';
     } catch (e) {
       this.fail('Failed to connect', e);
@@ -194,12 +195,50 @@ export default defineComponent({
       }
     },
 
+    /**
+     * Click: select in SketchUp. Selecting something nested opens its parents
+     * there, but that isn't the user opening a group, so the view stays put.
+     * Null (empty space, or the × button) also goes back to the whole model.
+     */
     async select(node: OutlineNode | null) {
+      this.expectActivePath(node ? node.path.slice(0, -1).join('/') : '');
+      if (!node) this.focusKey = null;
       try {
         await this.source.select(node);
       } catch (e) {
         console.error('Bubble Trouble: selection failed', e);
       }
+    },
+
+    /** Double-click: open it for editing in SketchUp and zoom the view onto it. */
+    async open(node: OutlineNode) {
+      this.focusKey = node.key;
+      this.expectActivePath(node.key);
+      try {
+        await this.source.open(node);
+      } catch (e) {
+        console.error('Bubble Trouble: open failed', e);
+      }
+    },
+
+    /** The user opened or closed a group in SketchUp: zoom onto it (or back out). */
+    activePathChanged(path: number[]) {
+      // Node keys are entity-id paths, so the open group's key is its path.
+      const key = path.join('/');
+      if (this.forgetActivePath(key)) return; // caused by select() or open()
+      this.focusKey = key || null;
+    },
+
+    /** Remember an open path we're about to cause; forgotten after a moment in case SketchUp never reports it. */
+    expectActivePath(key: string) {
+      this.ownActivePaths.push(key);
+      setTimeout(() => this.forgetActivePath(key), 1500);
+    },
+
+    forgetActivePath(key: string): boolean {
+      const i = this.ownActivePaths.indexOf(key);
+      if (i !== -1) this.ownActivePaths.splice(i, 1);
+      return i !== -1;
     },
 
     fail(what: string, e: unknown) {
@@ -250,9 +289,9 @@ export default defineComponent({
     <input v-model="search" class="search" type="search" placeholder="Search by name" />
     <p class="muted info">{{ info }}</p>
 
-    <FreeBubbles v-if="mode === 'free'" v-bind="viewProps" :cluster-by="clusterBy" @select="select" @hover="hoverNode = $event" />
-    <NestedBubbles v-else-if="mode === 'nested'" v-bind="viewProps" @select="select" @hover="hoverNode = $event" />
-    <Treemap v-else v-bind="viewProps" @select="select" @hover="hoverNode = $event" />
+    <FreeBubbles v-if="mode === 'free'" v-bind="viewProps" :cluster-by="clusterBy" @select="select" @open="open" @hover="hoverNode = $event" />
+    <NestedBubbles v-else-if="mode === 'nested'" v-bind="viewProps" @select="select" @open="open" @hover="hoverNode = $event" />
+    <Treemap v-else v-bind="viewProps" @select="select" @open="open" @hover="hoverNode = $event" />
 
     <div v-if="mock" class="mock-tools">
       <span class="muted">Fake edits:</span>

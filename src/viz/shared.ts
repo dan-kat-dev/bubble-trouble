@@ -30,6 +30,7 @@ export const vizProps = {
 
 export const vizEmits = {
   select: (_node: OutlineNode | null) => true,
+  open: (_node: OutlineNode) => true,
   hover: (_node: OutlineNode | null) => true,
 };
 

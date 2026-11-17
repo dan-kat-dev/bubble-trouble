@@ -158,6 +158,15 @@ export class JsaSource implements ModelSource {
     }
   }
 
+  /** Open the node itself (not just its parents), with nothing selected inside. */
+  async open(node: OutlineNode): Promise<void> {
+    const model = this.requireModel();
+    const path = node.path.map((id) => this.instances.get(id));
+    if (path.some((e) => e === undefined)) return;
+    await model.updateSelection([], 'replace');
+    await model.performOperation((op) => op.modelSetActivePath(path as SU.ActivePathEntity[]), 'Bubble Trouble: open');
+  }
+
   // -------------------------------------------------------------------------
   // 5. Zoom the camera
   // -------------------------------------------------------------------------

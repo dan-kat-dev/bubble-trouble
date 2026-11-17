@@ -3,7 +3,8 @@
 # Desktop SketchUp doesn't have the JS API yet, so this file stands in for it.
 # It opens the same Vue app in an HtmlDialog and answers its few requests:
 #
-#   JS -> Ruby: sketchup.getSnapshot(), sketchup.select(path), sketchup.zoomToSelection()
+#   JS -> Ruby: sketchup.getSnapshot(), sketchup.select(path), sketchup.open(path),
+#               sketchup.zoomToSelection()
 #   Ruby -> JS: bubbleTrouble.snapshot(data), .modelChanged(), .selectionChanged(ids),
 #               .activePathChanged(ids)
 #
@@ -39,6 +40,9 @@ module BubbleTrouble
     end
     @dialog.add_action_callback('select') do |_context, path|
       select(Sketchup.active_model, path)
+    end
+    @dialog.add_action_callback('open') do |_context, path|
+      open(Sketchup.active_model, path)
     end
     @dialog.add_action_callback('zoomToSelection') do |_context|
       model = Sketchup.active_model
@@ -96,15 +100,8 @@ module BubbleTrouble
   # double-clicking into them), then selects the last one. An empty path
   # clears the selection and closes any open group.
   def self.select(model, path)
-    instances = []
-    entities = model.entities
-    Array(path).each do |id|
-      instance = entities.find { |e| e.entityID == id.to_i && e.respond_to?(:definition) }
-      return unless instance
-
-      instances << instance
-      entities = instance.definition.entities
-    end
+    instances = instances_on(model, path)
+    return unless instances
 
     model.selection.clear
     if instances.empty?
@@ -115,6 +112,28 @@ module BubbleTrouble
     parents = instances[0...-1]
     model.active_path = parents.empty? ? nil : parents
     model.selection.add(instances.last)
+  end
+
+  # Opens the instance at the end of `path` for editing, like double-clicking it.
+  def self.open(model, path)
+    instances = instances_on(model, path)
+    return if instances.nil? || instances.empty?
+
+    model.selection.clear
+    model.active_path = instances
+  end
+
+  # The instances along a path of entity ids from the top level, or nil if
+  # one of them is gone.
+  def self.instances_on(model, path)
+    entities = model.entities
+    Array(path).map do |id|
+      instance = entities.find { |e| e.entityID == id.to_i && e.respond_to?(:definition) }
+      return nil unless instance
+
+      entities = instance.definition.entities
+      instance
+    end
   end
 
   # The groups and components open for editing, outermost first.

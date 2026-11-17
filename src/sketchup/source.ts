@@ -21,6 +21,8 @@ export interface ModelSource {
   select(node: OutlineNode | null): Promise<void>;
   /** Called with the entity ids of selected groups and components. Returns an unsubscribe. */
   onSelectionChanged(callback: (entityIds: Set<number>) => void): () => void;
+  /** Open this node for editing, like double-clicking it in SketchUp. */
+  open(node: OutlineNode): Promise<void>;
   /**
    * Called with the entity ids of the groups and components open for editing,
    * outermost first (empty at the top level). Returns an unsubscribe.
