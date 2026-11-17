@@ -289,9 +289,12 @@ export default defineComponent({
     <input v-model="search" class="search" type="search" placeholder="Search by name" />
     <p class="muted info">{{ info }}</p>
 
-    <FreeBubbles v-if="mode === 'free'" v-bind="viewProps" :cluster-by="clusterBy" @select="select" @open="open" @hover="hoverNode = $event" />
-    <NestedBubbles v-else-if="mode === 'nested'" v-bind="viewProps" @select="select" @open="open" @hover="hoverNode = $event" />
-    <Treemap v-else v-bind="viewProps" @select="select" @open="open" @hover="hoverNode = $event" />
+    <div class="viz-wrap">
+      <FreeBubbles v-if="mode === 'free'" v-bind="viewProps" :cluster-by="clusterBy" @select="select" @open="open" @hover="hoverNode = $event" />
+      <NestedBubbles v-else-if="mode === 'nested'" v-bind="viewProps" @select="select" @open="open" @hover="hoverNode = $event" />
+      <Treemap v-else v-bind="viewProps" @select="select" @open="open" @hover="hoverNode = $event" />
+      <button v-if="focusKey" class="zoom-out" title="Deselect and show the whole model" @click="select(null)">×</button>
+    </div>
 
     <div v-if="mock" class="mock-tools">
       <span class="muted">Fake edits:</span>
