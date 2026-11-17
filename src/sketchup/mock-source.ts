@@ -20,9 +20,14 @@ export class MockSource implements ModelSource {
   private selectionListeners = new Set<(ids: Set<number>) => void>();
   private activePathListeners = new Set<(path: number[]) => void>();
 
-  constructor() {
+  /** More than one house makes a big street of them, for testing speed (?mock=50). */
+  constructor(houses = 1) {
     this.root = { id: -1, name: 'Model', faces: 0, edges: 0, children: [] };
-    this.buildHouse();
+    this.buildComponents();
+    this.root.children =
+      houses === 1
+        ? this.houseParts()
+        : Array.from({ length: houses }, (_, i) => this.group(`House ${i + 1}`, 0, this.houseParts()));
   }
 
   async connect(): Promise<void> {}
@@ -116,7 +121,7 @@ export class MockSource implements ModelSource {
   // Building the house
   // -------------------------------------------------------------------------
 
-  private buildHouse(): void {
+  private buildComponents(): void {
     this.component('Leg', 60);
     this.component('Chair', 380, [...this.instances('Leg', 4)]);
     this.component('Cabinet', 340);
@@ -130,8 +135,10 @@ export class MockSource implements ModelSource {
     this.component('Tree', 3000);
     this.component('Car', 8000);
     this.component('Post', 24);
+  }
 
-    this.root.children = [
+  private houseParts(): ChildRef[] {
+    return [
       this.group('Walls', 420),
       this.group('Roof', 180),
       this.group('Kitchen', 0, [
