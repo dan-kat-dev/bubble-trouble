@@ -9,6 +9,13 @@ import NestedBubbles from './viz/NestedBubbles.vue';
 import Treemap from './viz/Treemap.vue';
 import { PALETTES, type PaletteId } from './viz/shared';
 
+/**
+ * How many levels to draw below the group in focus (or the top level).
+ * Big models get slow with every nested bubble drawn; deeper ones appear as
+ * you zoom into their parents.
+ */
+const VISIBLE_LEVELS = 4;
+
 /** Re-reading the model is heavy, so wait for a burst of edits to settle. */
 const RELOAD_DEBOUNCE_MS = 250;
 
@@ -76,7 +83,8 @@ export default defineComponent({
     /** The props every view takes. Only used once the tree has loaded. */
     viewProps(): {
       tree: OutlineNode;
-      selectedIds: Set<number>;
+      selectedKeys: Set<string>;
+      maxDepth: number;
       hoverDefinitionId: number | null;
       search: string;
       focusKey: string | null;
@@ -84,13 +92,32 @@ export default defineComponent({
     } {
       return {
         tree: this.tree!,
-        selectedIds: this.selectedIds,
+        selectedKeys: this.selectedKeys,
+        maxDepth: this.maxDepth,
         hoverDefinitionId: this.hoverNode?.definitionId ?? null,
         search: this.search,
         // Node keys are entity-id paths, so the open group's key is its path.
         focusKey: this.activePath.length > 0 ? this.activePath.join('/') : null,
         palette: this.palette,
       };
+    },
+
+    /** Nodes deeper than this aren't drawn. */
+    maxDepth(): number {
+      return this.activePath.length + VISIBLE_LEVELS;
+    },
+
+    /**
+     * Keys of the shapes to highlight. A selected node that's too deep to be
+     * drawn highlights its deepest drawn ancestor instead.
+     */
+    selectedKeys(): Set<string> {
+      const keys = new Set<string>();
+      if (!this.tree || this.selectedIds.size === 0) return keys;
+      for (const node of descendants(this.tree)) {
+        if (this.selectedIds.has(node.entityId)) keys.add(node.path.slice(0, this.maxDepth).join('/'));
+      }
+      return keys;
     },
 
     /** Definition id → how many instances of it are in the model. */

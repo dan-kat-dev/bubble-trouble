@@ -64,6 +64,9 @@ export default defineComponent({
   },
 
   watch: {
+    maxDepth() {
+      this.layout();
+    },
     palette() {
       this.layout();
     },
@@ -95,7 +98,7 @@ export default defineComponent({
 
       const targets = new Map<string, number[]>();
       for (const d of root.descendants()) {
-        if (d.depth === 0) continue;
+        if (d.depth === 0 || d.depth > this.maxDepth) continue;
         targets.set(d.data.key, [d.x0, d.y0, d.x1 - d.x0, d.y1 - d.y0, 1]);
         this.nodes.set(d.data.key, d.data);
       }
@@ -132,7 +135,8 @@ export default defineComponent({
           h: Math.max(0, h),
           opacity: clamp01(opacity),
           color: this.colors.get(node.key) ?? NEUTRAL,
-          isGroup: node.children.length > 0,
+          // Nodes at the depth limit hide their insides, so they're drawn as leaves.
+          isGroup: node.children.length > 0 && node.depth < this.maxDepth,
         };
       });
     },

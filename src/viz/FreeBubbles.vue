@@ -76,6 +76,9 @@ export default defineComponent({
   },
 
   watch: {
+    maxDepth() {
+      this.update();
+    },
     palette() {
       this.update();
     },
@@ -108,7 +111,7 @@ export default defineComponent({
   methods: {
     /** Sync bubbles with the tree, then reheat the simulation. */
     update() {
-      const nodes = descendants(this.tree);
+      const nodes = descendants(this.tree).filter((n) => n.depth <= this.maxDepth);
       const size = (n: OutlineNode) => Math.max(1, n.faces + n.edges);
 
       // Scale radii so all the bubbles together fill about 40% of the view.

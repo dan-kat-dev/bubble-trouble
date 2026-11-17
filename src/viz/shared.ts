@@ -16,7 +16,10 @@ export const VIEW_H = 480;
 
 export const vizProps = {
   tree: { type: Object as PropType<OutlineNode>, required: true },
-  selectedIds: { type: Object as PropType<Set<number>>, required: true },
+  /** Keys of the shapes to highlight as selected (see App's selectedKeys). */
+  selectedKeys: { type: Object as PropType<Set<string>>, required: true },
+  /** Deeper nodes aren't drawn; their geometry still counts toward their ancestors. */
+  maxDepth: { type: Number, default: Infinity },
   /** Instances of this definition get highlighted (the hovered one's). */
   hoverDefinitionId: { type: Number as PropType<number | null>, default: null },
   search: { type: String, default: '' },
@@ -33,14 +36,14 @@ export const vizEmits = {
 /** CSS classes for a shape: group or component, selected, twin of the hovered one, or dimmed by search. */
 export function shapeClass(
   node: OutlineNode,
-  props: { selectedIds: Set<number>; hoverDefinitionId: number | null; search: string }
+  props: { selectedKeys: Set<string>; hoverDefinitionId: number | null; search: string }
 ): Record<string, boolean> {
   const query = props.search.trim().toLowerCase();
   const matches =
     !query || node.name.toLowerCase().includes(query) || node.definitionName.toLowerCase().includes(query);
   return {
     group: node.kind === 'group',
-    selected: props.selectedIds.has(node.entityId),
+    selected: props.selectedKeys.has(node.key),
     twin: props.hoverDefinitionId !== null && node.definitionId === props.hoverDefinitionId,
     dim: !matches,
   };
