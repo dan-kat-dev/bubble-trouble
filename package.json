@@ -10,7 +10,9 @@
     "build": "vue-tsc -b && vite build",
     "typecheck": "vue-tsc -b",
     "zip": "npm run build && node scripts/zip.ts",
-    "build:desktop": "vue-tsc -b && vite build --mode desktop"
+    "build:desktop": "vue-tsc -b && vite build --mode desktop",
+    "rbz": "npm run build:desktop && node scripts/rbz.ts",
+    "desktop:link": "node scripts/desktop-link.ts"
   },
   "devDependencies": {
     "@types/archiver": "^8.0.0",
