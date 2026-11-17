@@ -99,6 +99,53 @@ declare global {
 
     type ActivePathEntity = Group | ComponentInstance;
 
+    type Point3Like = Point3d | readonly [number, number, number];
+
+    interface Point3d {
+      readonly x: number;
+      readonly y: number;
+      readonly z: number;
+    }
+
+    interface Vector3d {
+      readonly x: number;
+      readonly y: number;
+      readonly z: number;
+    }
+
+    interface BoundingBox {
+      readonly min: Point3d;
+      readonly max: Point3d;
+    }
+
+    interface Transformation {
+      applyTo(point: Point3Like): Point3d;
+    }
+
+    /** The groups and components open for editing, outermost first. Empty at the top level. */
+    interface ActivePath {
+      readonly path: ActivePathEntity[];
+      /** Local coordinates of the open group → world coordinates. */
+      readonly transform: Transformation;
+    }
+
+    /** Immutable: the with* methods return a new camera. */
+    interface Camera {
+      readonly direction: Vector3d;
+      readonly up: Vector3d;
+      /** Degrees. Perspective cameras only. */
+      readonly fieldOfView: number;
+      readonly data: { readonly type: string };
+      withOrientation(eye: Point3Like, target: Point3Like, up: Vector3d): Camera;
+      /** Inches. Parallel (orthographic) cameras only. */
+      withHeight(height: number): Camera;
+    }
+
+    interface View {
+      getCamera(): Promise<Camera>;
+      setCamera(camera: Camera, transitionTimeSeconds?: number): Promise<void>;
+    }
+
     interface Operation {
       modelSetActivePath(path: ActivePathEntity[]): void;
     }
@@ -118,7 +165,12 @@ declare global {
       readonly title: string;
       readonly revision: number;
       readonly entities: Entities;
+      readonly view: View;
       getDefinitions(): Promise<readonly ComponentDefinition[]>;
+      getActivePath(): Promise<ActivePath>;
+      /** Calls back right away, then whenever the user opens or closes a group. */
+      observeActivePath(callback: (activePath: ActivePath) => void): ObserverHandle;
+      getEntitiesBoundsByIds(ids: readonly SketchupId[]): Promise<BoundingBox[]>;
       getSelection(options?: EntityQuery): Promise<Selection>;
       observeSelectionMetadata(
         callback: (metadata: SelectionMetadata) => void,

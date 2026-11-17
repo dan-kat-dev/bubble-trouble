@@ -10,5 +10,4 @@
 - [ ] AI-powered search
 - [ ] Better colors
 - [ ] Hover tooltips with full names
-- [ ] When something is selected, zoom in on that group
 - [ ] Sort by recently edited mode

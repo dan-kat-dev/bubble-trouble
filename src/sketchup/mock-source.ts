@@ -45,6 +45,9 @@ export class MockSource implements ModelSource {
     return () => this.selectionListeners.delete(callback);
   }
 
+  /** No camera to move. */
+  async zoomToSelection(): Promise<void> {}
+
   // -------------------------------------------------------------------------
   // Fake edits, for testing the animations
   // -------------------------------------------------------------------------

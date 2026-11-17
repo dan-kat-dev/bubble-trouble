@@ -21,4 +21,6 @@ export interface ModelSource {
   select(node: OutlineNode | null): Promise<void>;
   /** Called with the entity ids of selected groups and components. Returns an unsubscribe. */
   onSelectionChanged(callback: (entityIds: Set<number>) => void): () => void;
+  /** Move the SketchUp camera so the selection fills the view. */
+  zoomToSelection(): Promise<void>;
 }

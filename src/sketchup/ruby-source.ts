@@ -5,7 +5,7 @@
  * extension (ruby/bubble_trouble/main.rb) opens this same app in an HtmlDialog
  * and answers its requests:
  *
- *   JS → Ruby: sketchup.getSnapshot(), sketchup.select(path)
+ *   JS → Ruby: sketchup.getSnapshot(), sketchup.select(path), sketchup.zoomToSelection()
  *              (the `sketchup` object is injected by HtmlDialog)
  *   Ruby → JS: bubbleTrouble.snapshot(data), .modelChanged(), .selectionChanged(ids)
  *
@@ -21,6 +21,7 @@ import type { ModelSource } from './source';
 export interface RubyBridge {
   getSnapshot(): void;
   select(path: number[]): void;
+  zoomToSelection(): void;
 }
 
 interface RubySnapshot {
@@ -91,5 +92,9 @@ export class RubySource implements ModelSource {
   onSelectionChanged(callback: (ids: Set<number>) => void): () => void {
     this.selectionListeners.add(callback);
     return () => this.selectionListeners.delete(callback);
+  }
+
+  async zoomToSelection(): Promise<void> {
+    this.ruby.zoomToSelection();
   }
 }

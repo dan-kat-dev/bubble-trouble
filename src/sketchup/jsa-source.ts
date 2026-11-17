@@ -8,6 +8,7 @@
  *   2. Read the model into a snapshot, then a tree
  *   3. Watch for model and selection changes
  *   4. Select, including nested instances
+ *   5. Zoom the camera
  */
 
 import { buildTree, type ChildRef, type DefinitionInfo, type OutlineNode } from '../model/outline';
@@ -149,8 +150,59 @@ export class JsaSource implements ModelSource {
     }
   }
 
+  // -------------------------------------------------------------------------
+  // 5. Zoom the camera
+  // -------------------------------------------------------------------------
+
+  /**
+   * The JS API has no "zoom to selection", so: take the selection's bounds,
+   * keep the camera's direction, and back the eye off until a sphere around
+   * the bounds fits the field of view.
+   *
+   * Not verified in SketchUp yet: we assume bounds are in the open group's
+   * coordinates, so they're moved to world coordinates with the active path's
+   * transform (QUESTIONS.md #9).
+   */
+  async zoomToSelection(): Promise<void> {
+    const model = this.requireModel();
+    const selection = await model.getSelection(INSTANCES);
+    const ids = selection.drawingElements.map((e) => e.sketchupId);
+    if (ids.length === 0) return;
+
+    const [boxes, activePath, camera] = await Promise.all([
+      model.getEntitiesBoundsByIds(ids),
+      model.getActivePath(),
+      model.view.getCamera(),
+    ]);
+    const points = boxes.flatMap(corners).map((p) => activePath.transform.applyTo(p));
+    const min = [0, 1, 2].map((i) => Math.min(...points.map((p) => xyz(p)[i])));
+    const max = [0, 1, 2].map((i) => Math.max(...points.map((p) => xyz(p)[i])));
+    const center = min.map((v, i) => (v + max[i]) / 2);
+    const radius = Math.max(1, Math.hypot(...max.map((v, i) => v - min[i])) / 2) * 1.1;
+
+    const direction = xyz(camera.direction);
+    const length = Math.hypot(...direction) || 1;
+    const halfFov = ((camera.fieldOfView || 35) * Math.PI) / 360;
+    const distance = radius / Math.sin(halfFov);
+    const eye = center.map((v, i) => v - (direction[i] / length) * distance);
+
+    let next = camera.withOrientation(eye as [number, number, number], center as [number, number, number], camera.up);
+    if (camera.data.type !== 'perspective') next = next.withHeight(radius * 2);
+    await model.view.setCamera(next, 0.4);
+  }
+
   private requireModel(): SU.Model {
     if (!this.model) throw new Error('Not connected to SketchUp yet.');
     return this.model;
   }
+}
+
+const xyz = (p: SU.Point3d | SU.Vector3d): [number, number, number] => [p.x, p.y, p.z];
+
+/** A box's 8 corners, so a rotated parent transform still covers it. */
+function corners(box: SU.BoundingBox): [number, number, number][] {
+  const out: [number, number, number][] = [];
+  for (const x of [box.min.x, box.max.x])
+    for (const y of [box.min.y, box.max.y]) for (const z of [box.min.z, box.max.z]) out.push([x, y, z]);
+  return out;
 }

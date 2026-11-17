@@ -3,7 +3,7 @@
 # Desktop SketchUp doesn't have the JS API yet, so this file stands in for it.
 # It opens the same Vue app in an HtmlDialog and answers its few requests:
 #
-#   JS -> Ruby: sketchup.getSnapshot(), sketchup.select(path)
+#   JS -> Ruby: sketchup.getSnapshot(), sketchup.select(path), sketchup.zoomToSelection()
 #   Ruby -> JS: bubbleTrouble.snapshot(data), .modelChanged(), .selectionChanged(ids)
 #
 # The other half is src/sketchup/ruby-source.ts. When desktop gets the JS API,
@@ -37,6 +37,10 @@ module BubbleTrouble
     end
     @dialog.add_action_callback('select') do |_context, path|
       select(Sketchup.active_model, path)
+    end
+    @dialog.add_action_callback('zoomToSelection') do |_context|
+      model = Sketchup.active_model
+      model.active_view.zoom(model.selection) unless model.selection.empty?
     end
     @dialog.set_on_closed { stop_watching }
 

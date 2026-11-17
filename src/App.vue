@@ -11,6 +11,16 @@ import Treemap from './viz/Treemap.vue';
 /** Re-reading the model is heavy, so wait for a burst of edits to settle. */
 const RELOAD_DEBOUNCE_MS = 250;
 
+/** Remembered per browser. Storage can be blocked, so never rely on it. */
+const ZOOM_KEY = 'bubble-trouble:zoom-to-selection';
+function loadZoomSetting(): boolean {
+  try {
+    return localStorage.getItem(ZOOM_KEY) !== 'off';
+  } catch {
+    return true;
+  }
+}
+
 type Mode = 'free' | 'nested' | 'treemap';
 const MODES: { id: Mode; label: string }[] = [
   { id: 'free', label: 'Free' },
@@ -26,6 +36,7 @@ export default defineComponent({
       modes: MODES,
       mode: 'nested' as Mode,
       clusterBy: 'branch' as ClusterBy,
+      zoomToSelection: loadZoomSetting(),
       search: '',
       hoverNode: null as OutlineNode | null,
       // markRaw: Vue shouldn't wrap the source or the tree in reactive proxies.
@@ -95,7 +106,7 @@ export default defineComponent({
       await this.source.connect();
       await this.reload();
       this.unsubscribers.push(this.source.onModelChanged(() => this.scheduleReload()));
-      this.unsubscribers.push(this.source.onSelectionChanged((ids) => (this.selectedIds = ids)));
+      this.unsubscribers.push(this.source.onSelectionChanged((ids) => this.selectionChanged(ids)));
       this.status = 'ready';
     } catch (e) {
       this.fail('Failed to connect', e);
@@ -105,6 +116,16 @@ export default defineComponent({
   beforeUnmount() {
     clearTimeout(this.reloadTimer);
     this.unsubscribers.forEach((stop) => stop());
+  },
+
+  watch: {
+    zoomToSelection(on: boolean) {
+      try {
+        localStorage.setItem(ZOOM_KEY, on ? 'on' : 'off');
+      } catch {
+        // Not remembered; fine.
+      }
+    },
   },
 
   methods: {
@@ -119,6 +140,14 @@ export default defineComponent({
     scheduleReload() {
       clearTimeout(this.reloadTimer);
       this.reloadTimer = setTimeout(() => this.reload(), RELOAD_DEBOUNCE_MS);
+    },
+
+    /** Highlight the selection here, and frame it in SketchUp if that's on. */
+    selectionChanged(ids: Set<number>) {
+      this.selectedIds = ids;
+      if (this.zoomToSelection && ids.size > 0) {
+        this.source.zoomToSelection().catch((e) => console.error('Bubble Trouble: zoom failed', e));
+      }
     },
 
     async select(node: OutlineNode | null) {
@@ -161,6 +190,10 @@ export default defineComponent({
           <option value="definition">Definition</option>
           <option value="kind">Type</option>
         </select>
+      </label>
+      <label title="Zoom SketchUp's camera to whatever is selected">
+        <input v-model="zoomToSelection" type="checkbox" />
+        Zoom to selection
       </label>
     </div>
 
