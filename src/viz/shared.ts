@@ -4,7 +4,7 @@
 
 import type { PropType } from 'vue';
 import { hierarchy, type HierarchyNode } from 'd3-hierarchy';
-import type { OutlineNode, SizeMetric } from '../model/outline';
+import type { OutlineNode } from '../model/outline';
 
 /** Every view draws into this coordinate space and scales to fit the panel. */
 export const VIEW_W = 400;
@@ -16,28 +16,35 @@ export const VIEW_H = 480;
 
 export const vizProps = {
   tree: { type: Object as PropType<OutlineNode>, required: true },
-  metric: { type: String as PropType<SizeMetric>, required: true },
-  selectedIds: { type: Object as PropType<Set<number>>, required: true },
+  /** Keys of the shapes to highlight as selected (see App's selectedKeys). */
+  selectedKeys: { type: Object as PropType<Set<string>>, required: true },
+  /** Deeper nodes aren't drawn; their geometry still counts toward their ancestors. */
+  maxDepth: { type: Number, default: Infinity },
   /** Instances of this definition get highlighted (the hovered one's). */
   hoverDefinitionId: { type: Number as PropType<number | null>, default: null },
   search: { type: String, default: '' },
+  /** The group open for editing in SketchUp: the view zooms onto it. */
+  focusKey: { type: String as PropType<string | null>, default: null },
+  palette: { type: String as PropType<PaletteId>, default: 'pastel' },
 } as const;
 
 export const vizEmits = {
   select: (_node: OutlineNode | null) => true,
+  open: (_node: OutlineNode) => true,
   hover: (_node: OutlineNode | null) => true,
 };
 
-/** CSS classes for a shape: selected, twin of the hovered one, or dimmed by search. */
+/** CSS classes for a shape: group or component, selected, twin of the hovered one, or dimmed by search. */
 export function shapeClass(
   node: OutlineNode,
-  props: { selectedIds: Set<number>; hoverDefinitionId: number | null; search: string }
+  props: { selectedKeys: Set<string>; hoverDefinitionId: number | null; search: string }
 ): Record<string, boolean> {
   const query = props.search.trim().toLowerCase();
   const matches =
     !query || node.name.toLowerCase().includes(query) || node.definitionName.toLowerCase().includes(query);
   return {
-    selected: props.selectedIds.has(node.entityId),
+    group: node.kind === 'group',
+    selected: props.selectedKeys.has(node.key),
     twin: props.hoverDefinitionId !== null && node.definitionId === props.hoverDefinitionId,
     dim: !matches,
   };
@@ -57,19 +64,85 @@ export function fitLabel(text: string, width: number): string {
 }
 
 // ---------------------------------------------------------------------------
-// Colors: one per top-level branch, so a branch keeps its color in every view
+// Colors: groups in quiet grays, components from a palette the user picks
 // ---------------------------------------------------------------------------
 
-const PALETTE = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#6250d6', '#008300', '#e34948'];
+/** Groups just organize, so they stay in the background: grays with a hint of hue. */
+const GROUP_GRAYS = ['#8b929c', '#9a948c', '#8e9893', '#968f9a'];
+
+/** Component palettes: eight colors each, similar in lightness so none shouts. */
+export const PALETTES = {
+  pastel: { label: 'Pastel', colors: ['#6fa8dc', '#f4978e', '#7ccba2', '#f6c26b', '#a99be0', '#ef9fc4', '#6cc5c9', '#c3cd6e'] },
+  muted: { label: 'Muted', colors: ['#6b8fb0', '#c98a72', '#7fa58a', '#c9a75e', '#9585b3', '#bd8299', '#689e9c', '#a39d6e'] },
+  vivid: { label: 'Vivid', colors: ['#3b82f6', '#f97316', '#10b981', '#eab308', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'] },
+  earth: { label: 'Earth', colors: ['#c06c4a', '#d9a35b', '#8a9a5b', '#5f8a8b', '#a0785a', '#c99b8a', '#6d7f5c', '#b8a172'] },
+} as const;
+export type PaletteId = keyof typeof PALETTES;
+
 export const NEUTRAL = '#888780';
 
 /**
- * Top-level entity id → color. A node's color is its top-level ancestor's.
- * Picked from the entity id, not the position, so colors don't reshuffle when
- * something is added or removed.
+ * A solid fill: the color mixed with the panel background. Looks like a
+ * see-through tint, but inner shapes don't get muddied by the ones under them.
+ * Containers get a light tint, so what's inside them stands out.
  */
-export function branchColors(tree: OutlineNode): Map<number, string> {
-  return new Map(tree.children.map((child) => [child.entityId, PALETTE[child.entityId % PALETTE.length]]));
+export function solidFill(color: string, container: boolean): string {
+  return `color-mix(in srgb, ${color} ${container ? 15 : 60}%, var(--su-bg, Canvas))`;
+}
+
+/**
+ * Node key → color. Every instance of a component takes its definition's
+ * palette color, wherever it's nested, so all copies match. A group takes a
+ * gray: its parent group's, or its own if its parent isn't a group. Picked
+ * from ids, not positions, so colors don't reshuffle on edits.
+ */
+export function nodeColors(tree: OutlineNode, palette: PaletteId): Map<string, string> {
+  const colors = new Map<string, string>();
+  const components = PALETTES[palette].colors;
+  const visit = (node: OutlineNode, parent: OutlineNode | null) => {
+    const color =
+      node.kind === 'component'
+        ? components[node.definitionId! % components.length]
+        : parent?.kind === 'group'
+          ? colors.get(parent.key)!
+          : GROUP_GRAYS[node.entityId % GROUP_GRAYS.length];
+    colors.set(node.key, color);
+    for (const child of node.children) visit(child, node);
+  };
+  for (const child of tree.children) visit(child, null);
+  return colors;
+}
+
+// ---------------------------------------------------------------------------
+// Zoom: fill the view with the group open for editing
+// ---------------------------------------------------------------------------
+
+export interface Bounds {
+  key: string;
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
+/**
+ * A CSS transform that zooms onto the focused shape and everything inside it
+ * (its key's descendants), plus the scale, so labels can stay the same size.
+ * No focus, or nothing to focus on: no zoom. The rest of the shapes stay put.
+ */
+export function focusZoom(shapes: Bounds[], focusKey: string | null): { k: number; transform: string } {
+  const inside = focusKey ? shapes.filter((s) => s.key === focusKey || s.key.startsWith(focusKey + '/')) : [];
+  if (inside.length === 0) return { k: 1, transform: 'none' };
+
+  const x0 = Math.min(...inside.map((s) => s.x0));
+  const y0 = Math.min(...inside.map((s) => s.y0));
+  const x1 = Math.max(...inside.map((s) => s.x1));
+  const y1 = Math.max(...inside.map((s) => s.y1));
+  const k = Math.max(1, 0.92 * Math.min(VIEW_W / Math.max(1, x1 - x0), VIEW_H / Math.max(1, y1 - y0)));
+  // Center on it, but never pan past the drawing's edges into empty space.
+  const tx = Math.min(0, Math.max(VIEW_W * (1 - k), VIEW_W / 2 - (k * (x0 + x1)) / 2));
+  const ty = Math.min(0, Math.max(VIEW_H * (1 - k), VIEW_H / 2 - (k * (y0 + y1)) / 2));
+  return { k, transform: `translate(${tx}px, ${ty}px) scale(${k})` };
 }
 
 // ---------------------------------------------------------------------------
@@ -77,13 +150,13 @@ export function branchColors(tree: OutlineNode): Map<number, string> {
 // ---------------------------------------------------------------------------
 
 /**
- * The tree as a d3 hierarchy, sized by the chosen metric. d3's sum() adds each
+ * The tree as a d3 hierarchy, sized by faces + edges. d3's sum() adds each
  * node's own count to its children's, which gives the nested totals. Minimum 1
  * so empty containers still show up.
  */
-export function hierarchyFor(tree: OutlineNode, metric: SizeMetric): HierarchyNode<OutlineNode> {
+export function hierarchyFor(tree: OutlineNode): HierarchyNode<OutlineNode> {
   return hierarchy(tree, (node) => node.children)
-    .sum((node) => Math.max(1, metric === 'faces' ? node.ownFaces : node.ownEdges))
+    .sum((node) => Math.max(1, node.ownFaces + node.ownEdges))
     .sort((a, b) => (b.value ?? 0) - (a.value ?? 0));
 }
 

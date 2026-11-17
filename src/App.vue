@@ -1,15 +1,40 @@
 <script lang="ts">
 import { defineComponent, markRaw } from 'vue';
-import { descendants, type OutlineNode, type SizeMetric } from './model/outline';
+import { descendants, type OutlineNode } from './model/outline';
 import { createSource } from './sketchup/create-source';
 import { MockSource } from './sketchup/mock-source';
 import type { ModelSource } from './sketchup/source';
 import FreeBubbles, { type ClusterBy } from './viz/FreeBubbles.vue';
 import NestedBubbles from './viz/NestedBubbles.vue';
 import Treemap from './viz/Treemap.vue';
+import { PALETTES, type PaletteId } from './viz/shared';
+
+/**
+ * How many levels to draw below the group in focus (or the top level).
+ * Big models get slow with every nested bubble drawn; deeper ones appear as
+ * you zoom into their parents.
+ */
+const VISIBLE_LEVELS = 4;
 
 /** Re-reading the model is heavy, so wait for a burst of edits to settle. */
 const RELOAD_DEBOUNCE_MS = 250;
+
+/** Settings are remembered per browser. Storage can be blocked, so never rely on it. */
+function loadSetting(key: string, fallback: string): string {
+  try {
+    return localStorage.getItem(`bubble-trouble:${key}`) ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+function saveSetting(key: string, value: string): void {
+  try {
+    localStorage.setItem(`bubble-trouble:${key}`, value);
+  } catch {
+    // Not remembered; fine.
+  }
+}
+const savedPalette = loadSetting('palette', 'pastel');
 
 type Mode = 'free' | 'nested' | 'treemap';
 const MODES: { id: Mode; label: string }[] = [
@@ -25,8 +50,10 @@ export default defineComponent({
     return {
       modes: MODES,
       mode: 'nested' as Mode,
-      metric: 'faces' as SizeMetric,
       clusterBy: 'branch' as ClusterBy,
+      zoomToSelection: loadSetting('zoom-to-selection', 'on') !== 'off',
+      palettes: PALETTES,
+      palette: (savedPalette in PALETTES ? savedPalette : 'pastel') as PaletteId,
       search: '',
       hoverNode: null as OutlineNode | null,
       // markRaw: Vue shouldn't wrap the source or the tree in reactive proxies.
@@ -34,6 +61,10 @@ export default defineComponent({
       source: markRaw(createSource()) as ModelSource,
       tree: null as OutlineNode | null,
       selectedIds: new Set<number>(),
+      /** Key of the group or component the view is zoomed onto (null: the whole model). */
+      focusKey: null as string | null,
+      /** Open paths we caused ourselves, so they don't move the view (see activePathChanged). A double-click causes the same one twice, so it's a list. */
+      ownActivePaths: markRaw([] as string[]),
       status: 'connecting' as 'connecting' | 'ready' | 'error',
       error: '',
       unsubscribers: [] as (() => void)[],
@@ -54,18 +85,40 @@ export default defineComponent({
     /** The props every view takes. Only used once the tree has loaded. */
     viewProps(): {
       tree: OutlineNode;
-      metric: SizeMetric;
-      selectedIds: Set<number>;
+      selectedKeys: Set<string>;
+      maxDepth: number;
       hoverDefinitionId: number | null;
       search: string;
+      focusKey: string | null;
+      palette: PaletteId;
     } {
       return {
         tree: this.tree!,
-        metric: this.metric,
-        selectedIds: this.selectedIds,
+        selectedKeys: this.selectedKeys,
+        maxDepth: this.maxDepth,
         hoverDefinitionId: this.hoverNode?.definitionId ?? null,
         search: this.search,
+        focusKey: this.focusKey,
+        palette: this.palette,
       };
+    },
+
+    /** Nodes deeper than this aren't drawn. */
+    maxDepth(): number {
+      return (this.focusKey ? this.focusKey.split('/').length : 0) + VISIBLE_LEVELS;
+    },
+
+    /**
+     * Keys of the shapes to highlight. A selected node that's too deep to be
+     * drawn highlights its deepest drawn ancestor instead.
+     */
+    selectedKeys(): Set<string> {
+      const keys = new Set<string>();
+      if (!this.tree || this.selectedIds.size === 0) return keys;
+      for (const node of descendants(this.tree)) {
+        if (this.selectedIds.has(node.entityId)) keys.add(node.path.slice(0, this.maxDepth).join('/'));
+      }
+      return keys;
     },
 
     /** Definition id → how many instances of it are in the model. */
@@ -98,7 +151,8 @@ export default defineComponent({
       await this.source.connect();
       await this.reload();
       this.unsubscribers.push(this.source.onModelChanged(() => this.scheduleReload()));
-      this.unsubscribers.push(this.source.onSelectionChanged((ids) => (this.selectedIds = ids)));
+      this.unsubscribers.push(this.source.onSelectionChanged((ids) => this.selectionChanged(ids)));
+      this.unsubscribers.push(this.source.onActivePathChanged((path) => this.activePathChanged(path)));
       this.status = 'ready';
     } catch (e) {
       this.fail('Failed to connect', e);
@@ -108,6 +162,15 @@ export default defineComponent({
   beforeUnmount() {
     clearTimeout(this.reloadTimer);
     this.unsubscribers.forEach((stop) => stop());
+  },
+
+  watch: {
+    zoomToSelection(on: boolean) {
+      saveSetting('zoom-to-selection', on ? 'on' : 'off');
+    },
+    palette(id: PaletteId) {
+      saveSetting('palette', id);
+    },
   },
 
   methods: {
@@ -124,12 +187,58 @@ export default defineComponent({
       this.reloadTimer = setTimeout(() => this.reload(), RELOAD_DEBOUNCE_MS);
     },
 
+    /** Highlight the selection here, and frame it in SketchUp if that's on. */
+    selectionChanged(ids: Set<number>) {
+      this.selectedIds = ids;
+      if (this.zoomToSelection && ids.size > 0) {
+        this.source.zoomToSelection().catch((e) => console.error('Bubble Trouble: zoom failed', e));
+      }
+    },
+
+    /**
+     * Click: select in SketchUp. Selecting something nested opens its parents
+     * there, but that isn't the user opening a group, so the view stays put.
+     * Null (empty space, or the × button) also goes back to the whole model.
+     */
     async select(node: OutlineNode | null) {
+      this.expectActivePath(node ? node.path.slice(0, -1).join('/') : '');
+      if (!node) this.focusKey = null;
       try {
         await this.source.select(node);
       } catch (e) {
         console.error('Bubble Trouble: selection failed', e);
       }
+    },
+
+    /** Double-click: open it for editing in SketchUp and zoom the view onto it. */
+    async open(node: OutlineNode) {
+      this.focusKey = node.key;
+      this.expectActivePath(node.key);
+      try {
+        await this.source.open(node);
+      } catch (e) {
+        console.error('Bubble Trouble: open failed', e);
+      }
+    },
+
+    /** The user opened or closed a group in SketchUp: zoom onto it (or back out). */
+    activePathChanged(path: number[]) {
+      // Node keys are entity-id paths, so the open group's key is its path.
+      const key = path.join('/');
+      if (this.forgetActivePath(key)) return; // caused by select() or open()
+      this.focusKey = key || null;
+    },
+
+    /** Remember an open path we're about to cause; forgotten after a moment in case SketchUp never reports it. */
+    expectActivePath(key: string) {
+      this.ownActivePaths.push(key);
+      setTimeout(() => this.forgetActivePath(key), 1500);
+    },
+
+    forgetActivePath(key: string): boolean {
+      const i = this.ownActivePaths.indexOf(key);
+      if (i !== -1) this.ownActivePaths.splice(i, 1);
+      return i !== -1;
     },
 
     fail(what: string, e: unknown) {
@@ -157,13 +266,6 @@ export default defineComponent({
           {{ m.label }}
         </button>
       </div>
-      <label>
-        Size
-        <select v-model="metric">
-          <option value="faces">Faces</option>
-          <option value="edges">Edges</option>
-        </select>
-      </label>
       <label v-if="mode === 'free'">
         Group by
         <select v-model="clusterBy">
@@ -172,20 +274,34 @@ export default defineComponent({
           <option value="kind">Type</option>
         </select>
       </label>
+      <label title="Component colors. Groups are always gray.">
+        Colors
+        <select v-model="palette">
+          <option v-for="(p, id) in palettes" :key="id" :value="id">{{ p.label }}</option>
+        </select>
+      </label>
+      <label title="Zoom SketchUp's camera to whatever is selected">
+        <input v-model="zoomToSelection" type="checkbox" />
+        Zoom to selection
+      </label>
     </div>
 
     <input v-model="search" class="search" type="search" placeholder="Search by name" />
     <p class="muted info">{{ info }}</p>
 
-    <FreeBubbles v-if="mode === 'free'" v-bind="viewProps" :cluster-by="clusterBy" @select="select" @hover="hoverNode = $event" />
-    <NestedBubbles v-else-if="mode === 'nested'" v-bind="viewProps" @select="select" @hover="hoverNode = $event" />
-    <Treemap v-else v-bind="viewProps" @select="select" @hover="hoverNode = $event" />
+    <div class="viz-wrap">
+      <FreeBubbles v-if="mode === 'free'" v-bind="viewProps" :cluster-by="clusterBy" @select="select" @open="open" @hover="hoverNode = $event" />
+      <NestedBubbles v-else-if="mode === 'nested'" v-bind="viewProps" @select="select" @open="open" @hover="hoverNode = $event" />
+      <Treemap v-else v-bind="viewProps" @select="select" @open="open" @hover="hoverNode = $event" />
+      <button v-if="focusKey" class="zoom-out" title="Deselect and show the whole model" @click="select(null)">×</button>
+    </div>
 
     <div v-if="mock" class="mock-tools">
       <span class="muted">Fake edits:</span>
       <button class="button secondary" @click="mock.deleteRandom()">Delete</button>
       <button class="button secondary" @click="mock.explodeRandom()">Explode</button>
       <button class="button secondary" @click="mock.addRandom()">Add</button>
+      <button class="button secondary" @click="mock.openRandom()">Open group</button>
     </div>
   </template>
 </template>

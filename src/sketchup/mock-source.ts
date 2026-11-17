@@ -6,7 +6,7 @@
  * and their animations can be built and tested in a normal browser.
  */
 
-import { buildTree, type ChildRef, type DefinitionInfo, type OutlineNode } from '../model/outline';
+import { buildTree, descendants, type ChildRef, type DefinitionInfo, type OutlineNode } from '../model/outline';
 import type { ModelSource } from './source';
 
 export class MockSource implements ModelSource {
@@ -18,6 +18,7 @@ export class MockSource implements ModelSource {
   private root: DefinitionInfo;
   private modelListeners = new Set<() => void>();
   private selectionListeners = new Set<(ids: Set<number>) => void>();
+  private activePathListeners = new Set<(path: number[]) => void>();
 
   constructor() {
     this.root = { id: -1, name: 'Model', faces: 0, edges: 0, children: [] };
@@ -35,9 +36,25 @@ export class MockSource implements ModelSource {
     return () => this.modelListeners.delete(callback);
   }
 
+  /** Like SketchUp: selecting a nested node opens its parents. */
   async select(node: OutlineNode | null): Promise<void> {
     const ids = new Set(node ? [node.entityId] : []);
-    setTimeout(() => this.selectionListeners.forEach((cb) => cb(ids)), 30);
+    setTimeout(() => {
+      this.setActivePath(node ? node.path.slice(0, -1) : []);
+      this.selectionListeners.forEach((cb) => cb(ids));
+    }, 30);
+  }
+
+  async open(node: OutlineNode): Promise<void> {
+    setTimeout(() => {
+      this.setActivePath(node.path);
+      this.selectionListeners.forEach((cb) => cb(new Set()));
+    }, 30);
+  }
+
+  onActivePathChanged(callback: (path: number[]) => void): () => void {
+    this.activePathListeners.add(callback);
+    return () => this.activePathListeners.delete(callback);
   }
 
   onSelectionChanged(callback: (ids: Set<number>) => void): () => void {
@@ -45,9 +62,22 @@ export class MockSource implements ModelSource {
     return () => this.selectionListeners.delete(callback);
   }
 
+  /** No camera to move. */
+  async zoomToSelection(): Promise<void> {}
+
   // -------------------------------------------------------------------------
   // Fake edits, for testing the animations
   // -------------------------------------------------------------------------
+
+  /** Open a random group or component for editing, like double-clicking it. */
+  async openRandom(): Promise<void> {
+    const node = pick(descendants(await this.load()).filter((n) => n.children.length > 0));
+    if (node) this.setActivePath(node.path);
+  }
+
+  private setActivePath(path: number[]): void {
+    this.activePathListeners.forEach((cb) => cb(path));
+  }
 
   /** Erase a random instance. */
   deleteRandom(): void {

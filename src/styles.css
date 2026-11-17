@@ -59,14 +59,56 @@
   user-select: none;
 }
 
+.viz-wrap {
+  position: relative;
+}
+
+/* Shown while zoomed in: deselect and go back to the whole model. */
+.zoom-out {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--su-text-secondary);
+  border-radius: 50%;
+  background: var(--su-bg);
+  color: var(--su-text);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.85;
+}
+
+.zoom-out:hover {
+  opacity: 1;
+}
+
 .viz .shape {
   cursor: pointer;
+}
+
+/* Zooming onto the group open for editing. Labels counter-scale with it. */
+.viz .zoom {
+  transform-origin: 0 0;
+  transition: transform 0.6s ease;
+}
+
+.viz .zoom text {
+  transition: font-size 0.6s ease;
 }
 
 .viz .shape > circle,
 .viz .shape > rect {
   stroke-width: 1;
   vector-effect: non-scaling-stroke; /* stroke stays 1px however the svg scales */
+}
+
+/* Groups get a dashed outline, components a solid one. */
+.viz .shape.group > circle,
+.viz .shape.group > rect {
+  stroke-dasharray: 4 2;
 }
 
 .viz text {

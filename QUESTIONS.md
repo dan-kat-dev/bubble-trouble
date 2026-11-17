@@ -22,3 +22,6 @@
    websocket limits?
 8. **Desktop:** is the JS API coming to SketchUp desktop, and roughly when?
    It decides whether the desktop version needs a Ruby bridge at all.
+9. **Zoom to selection:** is there a built-in way to frame the selection? If
+   not, are the boxes from `getEntitiesBoundsByIds` in world coordinates, or in
+   the coordinates of the group the entity sits in?

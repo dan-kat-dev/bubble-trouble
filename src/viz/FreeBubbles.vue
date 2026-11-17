@@ -16,7 +16,7 @@ import {
   type SimulationNodeDatum,
 } from 'd3-force';
 import { descendants, parentKey, type OutlineNode } from '../model/outline';
-import { NEUTRAL, VIEW_H, VIEW_W, branchColors, fitLabel, shapeClass, tooltip, vizEmits, vizProps } from './shared';
+import { NEUTRAL, VIEW_H, VIEW_W, fitLabel, focusZoom, nodeColors, shapeClass, solidFill, tooltip, vizEmits, vizProps } from './shared';
 
 export type ClusterBy = 'branch' | 'definition' | 'kind';
 
@@ -34,6 +34,7 @@ interface Drawn {
   x: number;
   y: number;
   r: number;
+  targetR: number;
   color: string;
   leaving: boolean;
 }
@@ -60,15 +61,28 @@ export default defineComponent({
       bubbles: markRaw(new Map<string, Bubble>()),
       simulation: null as Simulation<Bubble, undefined> | null,
       collide: null as ForceCollide<Bubble> | null,
-      colors: markRaw(new Map<number, string>()),
+      colors: markRaw(new Map<string, string>()),
     };
   },
 
+  computed: {
+    zoom() {
+      return focusZoom(
+        // Full-grown radii, so the zoom doesn't chase bubbles that are still growing.
+        this.drawn.map((b) => ({ key: b.key, x0: b.x - b.targetR, y0: b.y - b.targetR, x1: b.x + b.targetR, y1: b.y + b.targetR })),
+        this.focusKey
+      );
+    },
+  },
+
   watch: {
-    tree() {
+    maxDepth() {
       this.update();
     },
-    metric() {
+    palette() {
+      this.update();
+    },
+    tree() {
       this.update();
     },
     clusterBy() {
@@ -97,8 +111,8 @@ export default defineComponent({
   methods: {
     /** Sync bubbles with the tree, then reheat the simulation. */
     update() {
-      const nodes = descendants(this.tree);
-      const size = (n: OutlineNode) => Math.max(1, this.metric === 'faces' ? n.faces : n.edges);
+      const nodes = descendants(this.tree).filter((n) => n.depth <= this.maxDepth);
+      const size = (n: OutlineNode) => Math.max(1, n.faces + n.edges);
 
       // Scale radii so all the bubbles together fill about 40% of the view.
       const totalSize = nodes.reduce((sum, n) => sum + size(n), 0);
@@ -141,7 +155,7 @@ export default defineComponent({
       );
       const centerOf = (b: Bubble) => centers.get(clusterOf(b.node, this.clusterBy)) ?? { x: VIEW_W / 2, y: VIEW_H / 2 };
 
-      this.colors = markRaw(branchColors(this.tree));
+      this.colors = markRaw(new Map([...this.colors, ...nodeColors(this.tree, this.palette)])); // keep colors of leaving shapes
       this.simulation!.force('x', forceX<Bubble>((b) => centerOf(b).x).strength(0.07))
         .force('y', forceY<Bubble>((b) => centerOf(b).y).strength(0.07))
         .nodes([...this.bubbles.values()])
@@ -170,7 +184,8 @@ export default defineComponent({
         x: b.x ?? 0,
         y: b.y ?? 0,
         r: b.r,
-        color: this.colors.get(b.node.path[0]) ?? NEUTRAL,
+        targetR: b.targetR,
+        color: this.colors.get(b.key) ?? NEUTRAL,
         leaving: b.leaving,
       }));
     },
@@ -181,27 +196,42 @@ export default defineComponent({
 
     tooltip,
     fitLabel,
+    solidFill,
   },
 });
 </script>
 
 <template>
   <svg class="viz" :viewBox="`0 0 ${width} ${height}`" @click.self="$emit('select', null)">
-    <g
-      v-for="b in drawn"
-      :key="b.key"
-      class="shape"
-      :class="shapeClass(b.node)"
-      :opacity="b.leaving ? 0.5 : 1"
-      @click.stop="$emit('select', b.node)"
-      @mouseenter="$emit('hover', b.node)"
-      @mouseleave="$emit('hover', null)"
-    >
-      <title>{{ tooltip(b.node) }}</title>
-      <circle :cx="b.x" :cy="b.y" :r="b.r" :fill="b.color" :fill-opacity="0.6" :stroke="b.color" />
-      <text v-if="b.r > 16" :x="b.x" :y="b.y" dy="0.35em" text-anchor="middle">
-        {{ fitLabel(b.node.name, b.r * 2) }}
-      </text>
+    <!-- Shapes zoomed past the drawing's edges get clipped. -->
+    <clipPath id="free-clip"><rect :width="width" :height="height" /></clipPath>
+    <g clip-path="url(#free-clip)">
+      <g class="zoom" :style="{ transform: zoom.transform }">
+        <g
+          v-for="b in drawn"
+          :key="b.key"
+          class="shape"
+          :class="shapeClass(b.node)"
+          :opacity="b.leaving ? 0.5 : 1"
+          @click.stop="$emit('select', b.node)"
+          @dblclick.stop="$emit('open', b.node)"
+          @mouseenter="$emit('hover', b.node)"
+          @mouseleave="$emit('hover', null)"
+        >
+          <title>{{ tooltip(b.node) }}</title>
+          <circle :cx="b.x" :cy="b.y" :r="b.r" :style="{ fill: solidFill(b.color, false) }" :stroke="b.color" />
+          <text
+            v-if="b.r * zoom.k > 16"
+            :x="b.x"
+            :y="b.y"
+            dy="0.35em"
+            text-anchor="middle"
+            :style="{ fontSize: `${11 / zoom.k}px` }"
+          >
+            {{ fitLabel(b.node.name, b.r * 2 * zoom.k) }}
+          </text>
+        </g>
+      </g>
     </g>
   </svg>
 </template>
